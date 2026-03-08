@@ -1,6 +1,6 @@
 # PromptDrive Requested Functionality
 
-Last updated: 2026-03-07
+Last updated: 2026-03-08
 
 ## Core UX
 - [x] Works on `chatgpt.com` conversation pages.
@@ -34,12 +34,16 @@ Last updated: 2026-03-07
 - [x] Bookmark persistence in `chrome.storage.local`.
 - [x] Branch-aware bookmark transfer.
 - [x] Selection bookmark jump attempts exact selected-text location.
+- [x] Selection bookmark briefly highlights the exact selected text after jump.
+- [x] Delete-all bookmarks action with confirmation dialog.
 
 ## Stats and Help
 - [x] Live stats chips: your msgs, your words, first, last, idle.
 - [x] Tooltip hints on controls.
 - [x] `n/a` explanation added to timestamp/idle stats tooltips.
 - [x] Tiny GitHub repo link in top bar.
+- [x] Bookmark list toggle uses stable width to avoid shifting nearby buttons.
+- [x] Control groups visually separated for easier scanning.
 
 ## Hide/Recover
 - [x] Hide all PromptDrive UI.
