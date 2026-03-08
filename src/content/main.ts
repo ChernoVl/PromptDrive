@@ -5,6 +5,7 @@ import { PromptDriveStore } from "@content/state/store";
 import { ThemeBridge } from "@content/style/themeBridge";
 import { StatsService } from "@content/stats/statsService";
 import { TimelineService } from "@content/timeline/timelineService";
+import { StepDot } from "@content/ui/stepDot";
 import { TimelineRail } from "@content/ui/timelineRail";
 import { TopBar } from "@content/ui/topBar";
 import type { StepDirection } from "@shared/types";
@@ -65,9 +66,23 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  const stepDot = new StepDot(adapter, {
+    onStep: () => {
+      const current = store.getState();
+      void performStep(current.direction);
+    },
+    onFlipDirection: () => {
+      const current = store.getState();
+      store.setState({ direction: current.direction === "down" ? "up" : "down" });
+      stepDot.update(store.getState().direction);
+    }
+  });
+
   store.subscribe((state) => {
     topBar.update(state);
     topBar.syncLayout();
+    stepDot.update(state.direction);
+    stepDot.syncLayout();
 
     const topRect = topBar.element.getBoundingClientRect();
     const composerTop = adapter.getComposerTopOffset();
@@ -148,6 +163,7 @@ async function bootstrap(): Promise<void> {
 
   window.addEventListener("resize", () => {
     topBar.syncLayout();
+    stepDot.syncLayout();
   });
 
   window.setInterval(() => {

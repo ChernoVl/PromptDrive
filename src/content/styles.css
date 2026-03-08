@@ -179,6 +179,26 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pd-accent, #9cc8ff) 24%, transparent);
 }
 
+.pd-step-dot {
+  position: fixed;
+  right: 12px;
+  z-index: 2147482996;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
+  background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.72)) 84%, transparent);
+  color: var(--pd-text, #f0f2f4);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.25);
+}
+
+.pd-step-dot:hover {
+  border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 60%, var(--pd-border, rgba(255, 255, 255, 0.2)));
+}
+
 @keyframes pd-glow-fade {
   0% {
     background: color-mix(in srgb, #7eb6ff 18%, transparent);
