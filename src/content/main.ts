@@ -123,6 +123,7 @@ async function bootstrap(): Promise<void> {
     }
 
     await navigator.jumpToMessageById(targetMessage.domId, "combined", "");
+    store.setState({ boundaryHint: null });
     refreshDerivedState();
   };
 
@@ -134,8 +135,27 @@ async function bootstrap(): Promise<void> {
     const current = store.getState();
     const mode = modeOverride ?? current.mode;
     const keywordFilter = ignoreFilter ? "" : current.filterKeyword;
-    await navigator.step(mode, direction, keywordFilter);
-    store.setState({ direction });
+    navigator.syncCurrentToViewport(mode, keywordFilter);
+    const result = await navigator.step(mode, direction, keywordFilter);
+
+    if (result.moved) {
+      store.setState({ direction, boundaryHint: null });
+      refreshDerivedState();
+      return;
+    }
+
+    if (result.reason === "boundary") {
+      if (current.boundaryHint === direction) {
+        await navigator.jumpToBoundary(mode, keywordFilter, direction);
+        store.setState({ direction, boundaryHint: null });
+        refreshDerivedState();
+      } else {
+        store.setState({ boundaryHint: direction });
+      }
+      return;
+    }
+
+    store.setState({ boundaryHint: null });
     refreshDerivedState();
   };
 
@@ -176,7 +196,10 @@ async function bootstrap(): Promise<void> {
       void bookmarkService
         .addMessageBookmark(currentChatId, message)
         .then(() => navigator.jumpToMessageById(message.domId, "combined", ""))
-        .then(() => refreshDerivedState());
+        .then(() => {
+          store.setState({ boundaryHint: null });
+          refreshDerivedState();
+        });
     },
     onAddSelectionBookmark: () => {
       const selection = window.getSelection();
@@ -193,9 +216,13 @@ async function bootstrap(): Promise<void> {
       void bookmarkService
         .addSelectionBookmark(currentChatId, message, text)
         .then((created) => (created ? navigator.jumpToMessageById(message.domId, "combined", "") : null))
-        .then(() => refreshDerivedState());
+        .then(() => {
+          store.setState({ boundaryHint: null });
+          refreshDerivedState();
+        });
     },
     onPrevBookmark: () => {
+      navigator.syncCurrentToViewport("combined", "");
       const target = bookmarkService.getNextBookmarkTarget(
         currentChatId,
         navigator.getCurrentDomId(),
@@ -208,10 +235,12 @@ async function bootstrap(): Promise<void> {
       }
 
       void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
+        store.setState({ boundaryHint: null });
         refreshDerivedState();
       });
     },
     onNextBookmark: () => {
+      navigator.syncCurrentToViewport("combined", "");
       const target = bookmarkService.getNextBookmarkTarget(
         currentChatId,
         navigator.getCurrentDomId(),
@@ -224,11 +253,17 @@ async function bootstrap(): Promise<void> {
       }
 
       void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
+        store.setState({ boundaryHint: null });
         refreshDerivedState();
       });
     },
     onSelectBookmark: (bookmarkId) => {
       void jumpToBookmarkId(bookmarkId);
+    },
+    onDeleteBookmark: (bookmarkId) => {
+      void bookmarkService.removeBookmark(bookmarkId).then(() => {
+        refreshDerivedState();
+      });
     }
   });
 
@@ -236,10 +271,12 @@ async function bootstrap(): Promise<void> {
     onTrackPercentClick: async (percentY) => {
       const state = store.getState();
       await navigator.jumpToCombinedPercent(percentY, state.mode, state.filterKeyword);
+      store.setState({ boundaryHint: null });
       refreshDerivedState();
     },
     onMarkerClick: async (domId) => {
       await navigator.jumpToMessageById(domId, "combined", "");
+      store.setState({ boundaryHint: null });
       refreshDerivedState();
     },
     onModeStepUp: () => {
@@ -261,13 +298,14 @@ async function bootstrap(): Promise<void> {
 
     topBar.update(state);
     topBar.syncLayout();
+    timelineRail.setBoundaryHint(state.boundaryHint);
 
     const topRect = topBar.element.getBoundingClientRect();
     const composerTop = adapter.getComposerTopOffset();
     const topOffset = Math.max(topRect.bottom + 8, adapter.getHeaderBottomOffset() + 56);
     const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
-    const rightOffset = Math.max(12, scrollbarWidth + 14);
+    const rightOffset = Math.max(24, scrollbarWidth + 24);
     timelineRail.syncLayout(topOffset, bottomOffset, rightOffset);
   });
 

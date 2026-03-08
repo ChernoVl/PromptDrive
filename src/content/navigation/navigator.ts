@@ -57,6 +57,61 @@ export class NavigatorService {
     return result;
   }
 
+  syncCurrentToViewport(mode: NavMode, keywordFilter: string): void {
+    this.refresh();
+    const eligible = this.getEffectiveMessages({ mode, keywordFilter });
+    if (eligible.length === 0) {
+      return;
+    }
+
+    const viewportCenter = window.innerHeight / 2;
+    let bestMessage: ChatMessage | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const message of eligible) {
+      const rect = message.element.getBoundingClientRect();
+      const containsCenter = rect.top <= viewportCenter && rect.bottom >= viewportCenter;
+      const distance = containsCenter ? 0 : Math.abs(rect.top - viewportCenter);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestMessage = message;
+      }
+    }
+
+    if (bestMessage) {
+      this.currentDomId = bestMessage.domId;
+    }
+  }
+
+  async jumpToBoundary(
+    mode: NavMode,
+    keywordFilter: string,
+    direction: StepDirection
+  ): Promise<NavigationResult> {
+    this.refresh();
+    const eligible = this.getEffectiveMessages({ mode, keywordFilter });
+    if (eligible.length === 0) {
+      return {
+        moved: false,
+        reason: "empty",
+        currentIndex: 0,
+        total: 0
+      };
+    }
+
+    const target = direction === "down" ? eligible[0] : eligible[eligible.length - 1];
+    if (!target) {
+      return {
+        moved: false,
+        reason: "not-found",
+        currentIndex: this.findCurrentIndex(eligible) + 1,
+        total: eligible.length
+      };
+    }
+
+    return this.jumpToMessage(target, eligible);
+  }
+
   async jumpToPercent(
     lane: TimelineLane,
     percentY: number,

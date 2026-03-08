@@ -3,6 +3,7 @@ import type { ChatStats, EdgeClickMode, NavMode, StepDirection } from "@shared/t
 export interface PromptDriveState {
   mode: NavMode;
   direction: StepDirection;
+  boundaryHint: StepDirection | null;
   edgeClickMode: EdgeClickMode;
   filterKeyword: string;
   currentIndex: number;
@@ -22,6 +23,7 @@ export const DEFAULT_STATS: ChatStats = {
 export const DEFAULT_STATE: PromptDriveState = {
   mode: "combined",
   direction: "down",
+  boundaryHint: null,
   edgeClickMode: "percentNearest",
   filterKeyword: "",
   currentIndex: 0,

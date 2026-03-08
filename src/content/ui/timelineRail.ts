@@ -28,6 +28,8 @@ function createMarkerElement(marker: TimelineMarker): HTMLButtonElement {
 export class TimelineRail {
   readonly element: HTMLElement;
   private readonly track: HTMLElement;
+  private readonly modeUpButton: HTMLButtonElement;
+  private readonly modeDownButton: HTMLButtonElement;
   private edgeClickMode: EdgeClickMode = "percentNearest";
 
   constructor(handlers: TimelineRailHandlers) {
@@ -45,11 +47,13 @@ export class TimelineRail {
     document.body.append(root);
     this.element = root;
     this.track = root.querySelector<HTMLElement>("[data-id='track']")!;
+    this.modeUpButton = root.querySelector<HTMLButtonElement>("[data-id='mode-up']")!;
+    this.modeDownButton = root.querySelector<HTMLButtonElement>("[data-id='mode-down']")!;
 
-    root.querySelector<HTMLButtonElement>("[data-id='mode-up']")!.addEventListener("click", () =>
+    this.modeUpButton.addEventListener("click", () =>
       handlers.onModeStepUp()
     );
-    root.querySelector<HTMLButtonElement>("[data-id='mode-down']")!.addEventListener("click", () =>
+    this.modeDownButton.addEventListener("click", () =>
       handlers.onModeStepDown()
     );
 
@@ -83,7 +87,12 @@ export class TimelineRail {
 
   update(model: TimelineModel, edgeClickMode: EdgeClickMode): void {
     this.edgeClickMode = edgeClickMode;
-    const markers = [...model.user, ...model.assistant].sort((left, right) => left.percent - right.percent);
+    const merged = [...model.user, ...model.assistant];
+    const markers =
+      edgeClickMode === "markersOnly"
+        ? merged.filter((marker) => marker.kind === "bookmark")
+        : merged;
+    markers.sort((left, right) => left.percent - right.percent);
     this.renderTrack(markers);
   }
 
@@ -96,6 +105,11 @@ export class TimelineRail {
 
   setHidden(hidden: boolean): void {
     this.element.style.display = hidden ? "none" : "";
+  }
+
+  setBoundaryHint(direction: "up" | "down" | null): void {
+    this.modeUpButton.classList.toggle("is-boundary", direction === "up");
+    this.modeDownButton.classList.toggle("is-boundary", direction === "down");
   }
 
   private renderTrack(markers: TimelineMarker[]): void {

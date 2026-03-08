@@ -21,6 +21,7 @@ interface TopBarHandlers {
   onPrevBookmark: () => void;
   onNextBookmark: () => void;
   onSelectBookmark: (bookmarkId: string) => void;
+  onDeleteBookmark: (bookmarkId: string) => void;
 }
 
 function formatTime(value: string | undefined): string {
@@ -208,12 +209,20 @@ export class TopBar {
     });
 
     this.bookmarkListContainer.addEventListener("click", (event) => {
-      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-bookmark-id]");
-      const bookmarkId = target?.dataset.bookmarkId;
-      if (!bookmarkId) {
+      const removeTarget = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-bookmark-remove]");
+      const selectTarget = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-bookmark-id]");
+      const removeId = removeTarget?.dataset.bookmarkRemove;
+      const selectId = selectTarget?.dataset.bookmarkId;
+
+      if (removeId) {
+        handlers.onDeleteBookmark(removeId);
         return;
       }
-      handlers.onSelectBookmark(bookmarkId);
+
+      if (!selectId) {
+        return;
+      }
+      handlers.onSelectBookmark(selectId);
     });
   }
 
@@ -224,6 +233,8 @@ export class TopBar {
     this.positionLabel.textContent = `${state.currentIndex} / ${state.total}`;
     this.stepUpButton.classList.toggle("is-active", state.direction === "up");
     this.stepDownButton.classList.toggle("is-active", state.direction === "down");
+    this.stepUpButton.classList.toggle("is-boundary", state.boundaryHint === "up");
+    this.stepDownButton.classList.toggle("is-boundary", state.boundaryHint === "down");
 
     this.statsUserMessages.textContent = `${state.stats.userMessageCount}`;
     this.statsUserWords.textContent = `${state.stats.userWordCount}`;
@@ -246,9 +257,12 @@ export class TopBar {
     this.bookmarkListContainer.innerHTML = items
       .map(
         (item) =>
-          `<button type="button" class="pd-bookmark-item" data-bookmark-id="${item.id}" title="${item.label}">
-            ${item.label}
-          </button>`
+          `<div class="pd-bookmark-item-row">
+            <button type="button" class="pd-bookmark-item" data-bookmark-id="${item.id}" title="${item.label}">
+              ${item.label}
+            </button>
+            <button type="button" class="pd-bookmark-remove" data-bookmark-remove="${item.id}" title="Delete bookmark">x</button>
+          </div>`
       )
       .join("");
   }
