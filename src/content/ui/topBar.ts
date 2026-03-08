@@ -8,6 +8,10 @@ interface TopBarHandlers {
   onEdgeClickModeChange: (mode: EdgeClickMode) => void;
   onFilterChange: (keyword: string) => void;
   onToggleExpanded: () => void;
+  onAddMessageBookmark: () => void;
+  onAddSelectionBookmark: () => void;
+  onPrevBookmark: () => void;
+  onNextBookmark: () => void;
 }
 
 function formatTime(value: string | undefined): string {
@@ -50,6 +54,11 @@ export class TopBar {
   private readonly statsFirst: HTMLElement;
   private readonly statsLast: HTMLElement;
   private readonly statsIdle: HTMLElement;
+  private readonly statsBookmarks: HTMLElement;
+  private readonly addBookmarkButton: HTMLButtonElement;
+  private readonly addSelectionButton: HTMLButtonElement;
+  private readonly prevBookmarkButton: HTMLButtonElement;
+  private readonly nextBookmarkButton: HTMLButtonElement;
   private readonly expandButton: HTMLButtonElement;
   private readonly advancedRow: HTMLElement;
 
@@ -94,7 +103,14 @@ export class TopBar {
           <span>Filter (You)</span>
           <input data-id="filter" type="text" placeholder="keyword" />
         </label>
+        <div class="pd-bookmark-controls">
+          <button type="button" class="pd-small-btn" data-id="bookmark-msg">+ Msg</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-sel">+ Sel</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-prev">Prev BM</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-next">Next BM</button>
+        </div>
         <div class="pd-stats">
+          <div class="pd-chip">Bookmarks <strong data-id="stat-bookmarks">0</strong></div>
           <div class="pd-chip">Your msgs <strong data-id="stat-user-msgs">0</strong></div>
           <div class="pd-chip">Your words <strong data-id="stat-user-words">0</strong></div>
           <div class="pd-chip">First <strong data-id="stat-first">n/a</strong></div>
@@ -117,6 +133,11 @@ export class TopBar {
     this.statsFirst = root.querySelector<HTMLElement>("[data-id='stat-first']")!;
     this.statsLast = root.querySelector<HTMLElement>("[data-id='stat-last']")!;
     this.statsIdle = root.querySelector<HTMLElement>("[data-id='stat-idle']")!;
+    this.statsBookmarks = root.querySelector<HTMLElement>("[data-id='stat-bookmarks']")!;
+    this.addBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-msg']")!;
+    this.addSelectionButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-sel']")!;
+    this.prevBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-prev']")!;
+    this.nextBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-next']")!;
     this.expandButton = root.querySelector<HTMLButtonElement>("[data-id='expand']")!;
     this.advancedRow = root.querySelector<HTMLElement>("[data-id='advanced']")!;
 
@@ -133,6 +154,10 @@ export class TopBar {
       handlers.onFilterChange(this.filterInput.value)
     );
     this.expandButton.addEventListener("click", () => handlers.onToggleExpanded());
+    this.addBookmarkButton.addEventListener("click", () => handlers.onAddMessageBookmark());
+    this.addSelectionButton.addEventListener("click", () => handlers.onAddSelectionBookmark());
+    this.prevBookmarkButton.addEventListener("click", () => handlers.onPrevBookmark());
+    this.nextBookmarkButton.addEventListener("click", () => handlers.onNextBookmark());
   }
 
   update(state: PromptDriveState): void {
@@ -147,6 +172,7 @@ export class TopBar {
     this.statsFirst.textContent = formatTime(state.stats.firstMessageAt);
     this.statsLast.textContent = formatTime(state.stats.lastMessageAt);
     this.statsIdle.textContent = formatIdleSeconds(state.stats.idleSeconds);
+    this.statsBookmarks.textContent = `${state.bookmarkCount}`;
 
     this.advancedRow.hidden = !state.expanded;
     this.expandButton.setAttribute("aria-expanded", state.expanded ? "true" : "false");

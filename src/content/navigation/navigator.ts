@@ -77,8 +77,17 @@ export class NavigatorService {
 
     const boundedPercent = Math.min(1, Math.max(0, percentY));
     const targetIndex = Math.round((eligible.length - 1) * boundedPercent);
+    const target = eligible[targetIndex];
+    if (!target) {
+      return {
+        moved: false,
+        reason: "not-found",
+        currentIndex: this.findCurrentIndex(eligible) + 1,
+        total: eligible.length
+      };
+    }
 
-    return this.jumpToMessage(eligible[targetIndex], eligible);
+    return this.jumpToMessage(target, eligible);
   }
 
   async jumpToMessageById(
@@ -144,7 +153,17 @@ export class NavigatorService {
       };
     }
 
-    return this.jumpToMessage(eligible[targetIndex], eligible);
+    const target = eligible[targetIndex];
+    if (!target) {
+      return {
+        moved: false,
+        reason: "not-found",
+        currentIndex: this.findCurrentIndex(eligible) + 1,
+        total: eligible.length
+      };
+    }
+
+    return this.jumpToMessage(target, eligible);
   }
 
   private jumpToMessage(target: ChatMessage, eligible: ChatMessage[]): NavigationResult {

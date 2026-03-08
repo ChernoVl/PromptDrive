@@ -98,6 +98,23 @@
   gap: 8px;
 }
 
+.pd-bookmark-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pd-small-btn {
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
+  background: color-mix(in srgb, var(--pd-bg, #121315) 74%, transparent);
+  color: var(--pd-text, #f0f2f4);
+  font-size: 11px;
+  padding: 0 9px;
+  cursor: pointer;
+}
+
 .pd-chip {
   display: inline-flex;
   align-items: center;

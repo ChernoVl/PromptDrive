@@ -9,6 +9,7 @@ export interface PromptDriveState {
   total: number;
   shortcutsEnabled: boolean;
   expanded: boolean;
+  bookmarkCount: number;
   stats: ChatStats;
 }
 
@@ -26,6 +27,7 @@ export const DEFAULT_STATE: PromptDriveState = {
   total: 0,
   shortcutsEnabled: true,
   expanded: false,
+  bookmarkCount: 0,
   stats: DEFAULT_STATS
 };
 

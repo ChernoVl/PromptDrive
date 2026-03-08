@@ -1,3 +1,4 @@
+import { BookmarkService } from "@content/bookmarks/bookmarkService";
 import { ChatAdapter } from "@content/dom/chatAdapter";
 import { MessageHighlighter } from "@content/highlight/highlighter";
 import { NavigatorService } from "@content/navigation/navigator";
@@ -34,8 +35,53 @@ async function bootstrap(): Promise<void> {
   const navigator = new NavigatorService(adapter, highlighter);
   const statsService = new StatsService();
   const timelineService = new TimelineService();
+  const bookmarkService = new BookmarkService();
   const store = new PromptDriveStore();
   const themeBridge = new ThemeBridge();
+  let currentChatId = adapter.getChatId();
+  const branchTransferDone = new Set<string>();
+  const branchTransferInFlight = new Set<string>();
+
+  await bookmarkService.load();
+
+  const getCurrentMessage = (): ReturnType<NavigatorService["getAllMessages"]>[number] | null => {
+    const currentDomId = navigator.getCurrentDomId();
+    const messages = navigator.getAllMessages();
+    if (currentDomId) {
+      const matched = messages.find((message) => message.domId === currentDomId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    return messages[messages.length - 1] ?? null;
+  };
+
+  const getMessageForSelection = (): ReturnType<NavigatorService["getAllMessages"]>[number] | null => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      return null;
+    }
+
+    const anchorNode = selection.anchorNode;
+    if (!anchorNode) {
+      return null;
+    }
+
+    const anchorElement =
+      anchorNode instanceof HTMLElement ? anchorNode : anchorNode.parentElement;
+    if (!anchorElement) {
+      return null;
+    }
+
+    const messages = navigator.getAllMessages();
+    const directContainer = anchorElement.closest<HTMLElement>("[id^='pd-msg-']");
+    if (directContainer?.id) {
+      return messages.find((message) => message.domId === directContainer.id) ?? null;
+    }
+
+    return messages.find((message) => message.element.contains(anchorElement)) ?? null;
+  };
 
   const topBar = new TopBar(adapter, {
     onModeChange: (mode) => {
@@ -50,6 +96,66 @@ async function bootstrap(): Promise<void> {
     },
     onToggleExpanded: () => {
       store.setState({ expanded: !store.getState().expanded });
+    },
+    onAddMessageBookmark: () => {
+      const message = getCurrentMessage();
+      if (!message) {
+        return;
+      }
+
+      void bookmarkService.addMessageBookmark(currentChatId, message).then(() => {
+        refreshDerivedState();
+      });
+    },
+    onAddSelectionBookmark: () => {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim() ?? "";
+      if (!text) {
+        return;
+      }
+
+      const message = getMessageForSelection();
+      if (!message) {
+        return;
+      }
+
+      void bookmarkService.addSelectionBookmark(currentChatId, message, text).then((created) => {
+        if (created) {
+          refreshDerivedState();
+        }
+      });
+    },
+    onPrevBookmark: () => {
+      const target = bookmarkService.getNextBookmarkTarget(
+        currentChatId,
+        navigator.getCurrentDomId(),
+        navigator.getAllMessages(),
+        "up"
+      );
+
+      if (!target) {
+        return;
+      }
+
+      void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
+        refreshDerivedState();
+      });
+    },
+    onNextBookmark: () => {
+      const target = bookmarkService.getNextBookmarkTarget(
+        currentChatId,
+        navigator.getCurrentDomId(),
+        navigator.getAllMessages(),
+        "down"
+      );
+
+      if (!target) {
+        return;
+      }
+
+      void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
+        refreshDerivedState();
+      });
     }
   });
 
@@ -94,15 +200,33 @@ async function bootstrap(): Promise<void> {
   const themeObserver = themeBridge.observe();
 
   const refreshDerivedState = (): void => {
+    const resolvedChatId = adapter.getChatId();
+    if (resolvedChatId !== currentChatId) {
+      currentChatId = resolvedChatId;
+    }
+
     const current = store.getState();
     const messages = navigator.refresh();
+    const chatBookmarks = bookmarkService.getForChat(currentChatId);
     const position = navigator.getPosition(current.mode, current.filterKeyword);
     const stats = statsService.build(messages);
-    const timelineModel = timelineService.build(messages, [], navigator.getCurrentDomId());
+    const timelineModel = timelineService.build(messages, chatBookmarks, navigator.getCurrentDomId());
+
+    if (!branchTransferDone.has(currentChatId) && !branchTransferInFlight.has(currentChatId)) {
+      branchTransferInFlight.add(currentChatId);
+      void bookmarkService.transferBranchBookmarks(currentChatId, messages).then((transferCount) => {
+        branchTransferInFlight.delete(currentChatId);
+        branchTransferDone.add(currentChatId);
+        if (transferCount > 0) {
+          refreshDerivedState();
+        }
+      });
+    }
 
     store.setState({
       currentIndex: position.currentIndex,
       total: position.total,
+      bookmarkCount: chatBookmarks.length,
       stats
     });
 

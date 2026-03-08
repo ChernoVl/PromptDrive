@@ -12,7 +12,10 @@ function sampleMessages(messages: ChatMessage[], maxMarkers: number): ChatMessag
 
   for (let markerIndex = 0; markerIndex < maxMarkers; markerIndex += 1) {
     const sourceIndex = Math.round(step * markerIndex);
-    sampled.push(messages[sourceIndex]);
+    const message = messages[sourceIndex];
+    if (message) {
+      sampled.push(message);
+    }
   }
 
   return sampled;

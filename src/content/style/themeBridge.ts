@@ -6,12 +6,20 @@ function parseRgbComponents(value: string): [number, number, number] | null {
     return null;
   }
 
-  const [r, g, b] = match[1]
+  const channels = match[1]
     .split(",")
     .slice(0, 3)
     .map((component) => Number.parseInt(component.trim(), 10));
 
-  if ([r, g, b].some((component) => Number.isNaN(component))) {
+  if (channels.length < 3 || channels.some((component) => Number.isNaN(component))) {
+    return null;
+  }
+
+  const r = channels[0];
+  const g = channels[1];
+  const b = channels[2];
+
+  if (r === undefined || g === undefined || b === undefined) {
     return null;
   }
 
@@ -24,7 +32,9 @@ function luminanceFromRgb(value: string): number | null {
     return null;
   }
 
-  const [r, g, b] = channels.map((channel) => channel / 255);
+  const r = channels[0] / 255;
+  const g = channels[1] / 255;
+  const b = channels[2] / 255;
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
