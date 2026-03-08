@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptDrive</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="pd-popup">
+      <h1>PromptDrive</h1>
+      <p>Quick controls for the active chat tab.</p>
+      <div class="pd-popup-actions">
+        <button type="button" data-action="show">Show Bars</button>
+        <button type="button" data-action="toggle">Toggle Bars</button>
+      </div>
+      <div class="pd-popup-status" data-id="status" aria-live="polite"></div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

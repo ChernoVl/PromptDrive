@@ -29,7 +29,7 @@ function createRestoreButton(onClick: () => void): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "pd-unhide-btn";
-  button.textContent = "Show PromptDrive";
+  button.textContent = "Show Bars";
   button.title = "Restore PromptDrive bars";
   button.hidden = true;
   button.addEventListener("click", onClick);
@@ -407,6 +407,36 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  const runtimeMessageListener = (
+    message: { type?: string } | undefined,
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response?: { ok: boolean }) => void
+  ): boolean => {
+    if (!message?.type) {
+      sendResponse({ ok: false });
+      return false;
+    }
+
+    if (message.type === "promptdrive.show") {
+      store.setState({ uiHidden: false });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message.type === "promptdrive.toggle") {
+      store.setState({ uiHidden: !store.getState().uiHidden });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    sendResponse({ ok: false });
+    return false;
+  };
+
+  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener(runtimeMessageListener);
+  }
+
   store.subscribe((state) => {
     const hidden = state.uiHidden;
     topBar.element.style.display = hidden ? "none" : "";
@@ -558,6 +588,9 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("beforeunload", () => {
     observer.disconnect();
     themeObserver.disconnect();
+    if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+      chrome.runtime.onMessage.removeListener(runtimeMessageListener);
+    }
     document.removeEventListener("scroll", onAnyScroll, true);
     window.removeEventListener("resize", onResize);
     if (refreshTimer !== null) {

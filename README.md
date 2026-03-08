@@ -5,9 +5,9 @@ PromptDrive is a Chrome extension for `chatgpt.com` that makes long conversation
 ## Features
 
 - Top docked control bar integrated with ChatGPT layout.
-- Navigation modes: `Combined`, `You`, `GPT`.
+- Navigation modes: `Combined`, `You`, `Assistant`.
 - Keyboard shortcuts: `Alt+J` (down), `Alt+K` (up).
-- Right-side dual timeline lanes for `You` and `GPT`.
+- Right-side dual timeline lanes for `You` and `Assistant`.
 - Percent click jump (or marker-only mode).
 - Bottom-right step button with long-press direction flip.
 - Live stats: your message count, your word count, first/last timestamp, idle time.

@@ -52,7 +52,7 @@ function formatIdleSeconds(value: number | undefined): string {
   return `${minutes}m ${seconds}s`;
 }
 
-const NA_TIME_HINT = "n/a means ChatGPT did not expose a usable message timestamp for this chat yet.";
+const NA_TIME_HINT = "n/a means the page did not expose a usable message timestamp yet.";
 
 export class TopBar {
   readonly element: HTMLElement;
@@ -103,7 +103,7 @@ export class TopBar {
           <select data-id="mode">
             <option value="combined">Combined</option>
             <option value="user">You</option>
-            <option value="assistant">GPT</option>
+            <option value="assistant">Assistant</option>
           </select>
         </label>
         <label class="pd-field" title="Percent Jump: click anywhere on timeline to jump by relative chat position. Markers Only: only marker clicks jump.">
@@ -144,8 +144,8 @@ export class TopBar {
           <button type="button" class="pd-small-btn" data-mode="combined" data-dir="down" title="Next message (all)">Any v</button>
           <button type="button" class="pd-small-btn" data-mode="user" data-dir="up" title="Previous your message">You ^</button>
           <button type="button" class="pd-small-btn" data-mode="user" data-dir="down" title="Next your message">You v</button>
-          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up" title="Previous GPT message">GPT ^</button>
-          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down" title="Next GPT message">GPT v</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up" title="Previous assistant message">AI ^</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down" title="Next assistant message">AI v</button>
         </div>
         <span class="pd-divider" aria-hidden="true"></span>
         <div class="pd-stats pd-advanced-group">
@@ -343,7 +343,7 @@ export class TopBar {
 
     const height = Math.ceil(this.element.getBoundingClientRect().height) + 10;
 
-    const host = document.querySelector<HTMLElement>("main") ?? document.body;
+    const host = this.resolveSpacerHost();
     if (this.spacer.parentElement !== host) {
       host.prepend(this.spacer);
     }
@@ -358,7 +358,7 @@ export class TopBar {
 
     const spacer = document.createElement("div");
     spacer.className = "pd-topbar-spacer";
-    const host = document.querySelector<HTMLElement>("main") ?? document.body;
+    const host = this.resolveSpacerHost();
     host.prepend(spacer);
     return spacer;
   }
@@ -369,5 +369,15 @@ export class TopBar {
     }
 
     document.body.append(this.element);
+  }
+
+  private resolveSpacerHost(): HTMLElement {
+    const firstTurn = document.querySelector<HTMLElement>("article[data-testid^='conversation-turn']");
+    const parent = firstTurn?.parentElement;
+    if (parent) {
+      return parent;
+    }
+
+    return document.querySelector<HTMLElement>("main") ?? document.body;
   }
 }

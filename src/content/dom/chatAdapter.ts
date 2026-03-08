@@ -2,9 +2,9 @@ import { createFingerprint } from "@shared/fingerprint";
 import type { ChatMessage, MessageRole, StepDirection } from "@shared/types";
 
 const MESSAGE_SELECTORS = [
-  "[data-message-author-role]",
-  "article[data-testid^='conversation-turn']",
-  "article[data-message-author-role]"
+  "[data-message-author-role='user']",
+  "[data-message-author-role='assistant']",
+  "article[data-testid^='conversation-turn']"
 ];
 
 export class ChatAdapter {
@@ -133,12 +133,16 @@ export class ChatAdapter {
   }
 
   private parseMessageElement(element: HTMLElement): ChatMessage | null {
-    const text = this.extractMessageText(element);
-    if (!text) {
+    if (!this.isVisibleMessageElement(element)) {
       return null;
     }
 
     const role = this.detectRole(element);
+    const text = this.extractMessageText(element, role);
+    if (!text) {
+      return null;
+    }
+
     const timestamp = this.extractTimestamp(element);
     const domId = this.ensureElementId(element);
 
@@ -155,7 +159,17 @@ export class ChatAdapter {
   private resolveMessageContainer(element: HTMLElement): HTMLElement | null {
     const directAttr = element.getAttribute("data-message-author-role");
     if (directAttr === "user" || directAttr === "assistant") {
-      return element;
+      let container: HTMLElement = element;
+      while (
+        container.parentElement?.getAttribute("data-message-author-role") === directAttr
+      ) {
+        const parent = container.parentElement;
+        if (!parent) {
+          break;
+        }
+        container = parent;
+      }
+      return container;
     }
 
     const attributedParent = element.closest<HTMLElement>("[data-message-author-role]");
@@ -185,22 +199,39 @@ export class ChatAdapter {
     return "assistant";
   }
 
-  private extractMessageText(element: HTMLElement): string {
-    const explicitTextNodes = [
-      "[data-message-content]",
-      ".markdown",
-      "[data-testid='conversation-turn-content']"
-    ];
+  private extractMessageText(element: HTMLElement, role: MessageRole): string {
+    const roleSpecificSelectors =
+      role === "user"
+        ? [".whitespace-pre-wrap", "[data-message-content]", "[data-testid='conversation-turn-content']"]
+        : [".markdown", "[data-message-content]", "[data-testid='conversation-turn-content']"];
 
-    for (const selector of explicitTextNodes) {
-      const target = element.querySelector<HTMLElement>(selector);
-      const text = target?.innerText?.trim();
+    for (const selector of roleSpecificSelectors) {
+      const targets = Array.from(element.querySelectorAll<HTMLElement>(selector));
+      if (targets.length === 0) {
+        continue;
+      }
+
+      const text = targets
+        .filter((target) => !target.closest("[aria-hidden='true']"))
+        .map((target) => target.innerText?.trim() ?? "")
+        .filter((value) => value.length > 0)
+        .join("\n")
+        .trim();
       if (text) {
         return text;
       }
     }
 
-    return element.innerText?.trim() ?? "";
+    return this.cleanText(element.innerText ?? "");
+  }
+
+  private cleanText(value: string): string {
+    return value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n")
+      .trim();
   }
 
   private extractTimestamp(element: HTMLElement): string | undefined {
@@ -221,6 +252,24 @@ export class ChatAdapter {
     this.idCounter += 1;
     element.id = id;
     return id;
+  }
+
+  private isVisibleMessageElement(element: HTMLElement): boolean {
+    if (element.closest("[aria-hidden='true']")) {
+      return false;
+    }
+
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return false;
+    }
+
+    return true;
   }
 
   private resolveScrollContainer(): HTMLElement | null {

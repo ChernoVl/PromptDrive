@@ -7,11 +7,11 @@ Last updated: 2026-03-08
 - [x] Top compact integrated toolbar under ChatGPT header.
 - [x] Right timeline rail with clickable markers.
 - [x] Two sets of arrows:
-  - [x] Top horizontal direct mode arrows (`Any`, `You`, `GPT`).
+  - [x] Top horizontal direct mode arrows (`Any`, `You`, `AI`).
   - [x] Vertical rail arrows for current selected mode.
 
 ## Navigation Behavior
-- [x] Modes: `Combined`, `You`, `GPT`.
+- [x] Modes: `Combined`, `You`, `Assistant`.
 - [x] Position counter (`current / total`).
 - [x] Message jump centers message start in viewport.
 - [x] Keyboard shortcuts (`Alt+J` down, `Alt+K` up, `Alt+H` hide/show).
@@ -47,7 +47,8 @@ Last updated: 2026-03-08
 
 ## Hide/Recover
 - [x] Hide all PromptDrive UI.
-- [x] Restore button always available (`Show PromptDrive`).
+- [x] Restore button always available (`Show Bars`).
+- [x] Extension popup includes `Show Bars` and `Toggle Bars` actions.
 
 ## Open Follow-up Checklist
 - [ ] Validate exact text-range jump reliability across very long markdown/code blocks.

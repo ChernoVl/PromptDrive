@@ -367,17 +367,18 @@
 
 .pd-unhide-btn {
   position: fixed;
-  top: 18px;
   right: 18px;
+  bottom: 84px;
   z-index: 2147483001;
-  height: 30px;
+  height: 32px;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.22));
-  border-radius: 10px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.8)) 88%, transparent);
   color: var(--pd-text, #f0f2f4);
   font-size: 11px;
-  padding: 0 10px;
+  padding: 0 12px;
   cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
 }
 
 @keyframes pd-glow-fade {

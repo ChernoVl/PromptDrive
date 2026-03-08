@@ -22,6 +22,9 @@ async function main() {
 
   await cp("src/manifest.json", "dist/manifest.json");
   await cp("src/content/styles.css", "dist/styles.css");
+  await cp("src/popup.html", "dist/popup.html");
+  await cp("src/popup.css", "dist/popup.css");
+  await cp("src/popup.js", "dist/popup.js");
 }
 
 main().catch((error) => {
