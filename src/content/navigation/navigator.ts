@@ -212,27 +212,18 @@ export class NavigatorService {
   }
 
   private scrollTargetToCenter(element: HTMLElement): void {
-    const scrollContainer = this.resolveScrollContainer(element);
-    const elementRect = element.getBoundingClientRect();
-
-    if (!scrollContainer) {
-      const scrollTop = window.scrollY + elementRect.top - window.innerHeight / 2;
-      window.scrollTo({
-        top: Math.max(0, scrollTop),
+    if (typeof element.scrollIntoView === "function") {
+      element.scrollIntoView({
+        block: "center",
+        inline: "nearest",
         behavior: "smooth"
       });
       return;
     }
 
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const offsetWithinContainer = elementRect.top - containerRect.top;
-    const centeredTop =
-      scrollContainer.scrollTop + offsetWithinContainer - scrollContainer.clientHeight / 2;
-
-    scrollContainer.scrollTo({
-      top: Math.max(0, centeredTop),
-      behavior: "smooth"
-    });
+    const rect = element.getBoundingClientRect();
+    const scrollTop = window.scrollY + rect.top - window.innerHeight / 2;
+    window.scrollTo({ top: Math.max(0, scrollTop), behavior: "smooth" });
   }
 
   private getEffectiveMessages(options: EffectiveListOptions): ChatMessage[] {
@@ -278,19 +269,4 @@ export class NavigatorService {
     return messages.findIndex((message) => message.domId === this.currentDomId);
   }
 
-  private resolveScrollContainer(element: HTMLElement): HTMLElement | null {
-    let node: HTMLElement | null = element.parentElement;
-
-    while (node) {
-      const style = getComputedStyle(node);
-      const isScrollable = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
-      if (isScrollable) {
-        return node;
-      }
-
-      node = node.parentElement;
-    }
-
-    return null;
-  }
 }

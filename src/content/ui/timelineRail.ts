@@ -73,6 +73,7 @@ export class TimelineRail {
   }
 
   syncLayout(topOffset: number, bottomOffset: number): void {
+    this.ensureMounted();
     this.element.style.top = `${topOffset}px`;
     this.element.style.bottom = `${bottomOffset}px`;
   }
@@ -82,5 +83,13 @@ export class TimelineRail {
     markers.forEach((marker) => {
       this.track.append(createMarkerElement(marker));
     });
+  }
+
+  private ensureMounted(): void {
+    if (this.element.isConnected) {
+      return;
+    }
+
+    document.body.append(this.element);
   }
 }

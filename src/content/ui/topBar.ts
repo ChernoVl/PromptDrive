@@ -182,9 +182,30 @@ export class TopBar {
   }
 
   syncLayout(): void {
-    const top = this.adapter.getHeaderBottomOffset() + 6;
+    this.ensureMounted();
+
+    const top = Math.max(8, this.adapter.getHeaderBottomOffset() + 6);
     this.element.style.top = `${top}px`;
+
+    const mainRect = document.querySelector<HTMLElement>("main")?.getBoundingClientRect();
+    if (mainRect && mainRect.width > 220) {
+      this.element.style.left = `${Math.max(8, mainRect.left + 8)}px`;
+      this.element.style.right = `${Math.max(8, window.innerWidth - mainRect.right + 8)}px`;
+      this.element.style.width = "auto";
+      this.element.style.transform = "none";
+    } else {
+      this.element.style.left = "50%";
+      this.element.style.right = "";
+      this.element.style.width = "min(960px, calc(100vw - 20px))";
+      this.element.style.transform = "translateX(-50%)";
+    }
+
     const height = Math.ceil(this.element.getBoundingClientRect().height) + 10;
+
+    const host = document.querySelector<HTMLElement>("main") ?? document.body;
+    if (this.spacer.parentElement !== host) {
+      host.prepend(this.spacer);
+    }
     this.spacer.style.height = `${height}px`;
   }
 
@@ -199,5 +220,13 @@ export class TopBar {
     const host = document.querySelector<HTMLElement>("main") ?? document.body;
     host.prepend(spacer);
     return spacer;
+  }
+
+  private ensureMounted(): void {
+    if (this.element.isConnected) {
+      return;
+    }
+
+    document.body.append(this.element);
   }
 }
