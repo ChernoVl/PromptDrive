@@ -1,7 +1,11 @@
 import { ChatAdapter } from "@content/dom/chatAdapter";
 import { MessageHighlighter } from "@content/highlight/highlighter";
 import { NavigatorService } from "@content/navigation/navigator";
-import type { NavMode, StepDirection } from "@shared/types";
+import { PromptDriveStore } from "@content/state/store";
+import { ThemeBridge } from "@content/style/themeBridge";
+import { StatsService } from "@content/stats/statsService";
+import { TopBar } from "@content/ui/topBar";
+import type { StepDirection } from "@shared/types";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -25,15 +29,58 @@ async function bootstrap(): Promise<void> {
   const adapter = new ChatAdapter();
   const highlighter = new MessageHighlighter();
   const navigator = new NavigatorService(adapter, highlighter);
+  const statsService = new StatsService();
+  const store = new PromptDriveStore();
+  const themeBridge = new ThemeBridge();
 
-  let mode: NavMode = "combined";
-  let filterKeyword = "";
-  let direction: StepDirection = "down";
+  const topBar = new TopBar(adapter, {
+    onModeChange: (mode) => {
+      store.setState({ mode });
+      refreshDerivedState();
+    },
+    onDirectionChange: (direction) => store.setState({ direction }),
+    onEdgeClickModeChange: (edgeClickMode) => store.setState({ edgeClickMode }),
+    onFilterChange: (filterKeyword) => {
+      store.setState({ filterKeyword });
+      refreshDerivedState();
+    },
+    onToggleExpanded: () => {
+      store.setState({ expanded: !store.getState().expanded });
+    }
+  });
 
-  navigator.refresh();
+  store.subscribe((state) => {
+    topBar.update(state);
+    topBar.syncLayout();
+  });
+
+  const themeObserver = themeBridge.observe();
+
+  const refreshDerivedState = (): void => {
+    const current = store.getState();
+    const messages = navigator.refresh();
+    const position = navigator.getPosition(current.mode, current.filterKeyword);
+    const stats = statsService.build(messages);
+
+    store.setState({
+      currentIndex: position.currentIndex,
+      total: position.total,
+      stats
+    });
+  };
+
+  refreshDerivedState();
+
+  const performStep = async (direction: StepDirection): Promise<void> => {
+    const current = store.getState();
+    await navigator.step(current.mode, direction, current.filterKeyword);
+    store.setState({ direction });
+    refreshDerivedState();
+  };
 
   window.addEventListener("keydown", async (event) => {
-    if (!event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) {
+    const state = store.getState();
+    if (!state.shortcutsEnabled || !event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) {
       return;
     }
 
@@ -43,37 +90,51 @@ async function bootstrap(): Promise<void> {
 
     if (event.key.toLowerCase() === "j") {
       event.preventDefault();
-      direction = "down";
-      await navigator.step(mode, "down", filterKeyword);
+      await performStep("down");
       return;
     }
 
     if (event.key.toLowerCase() === "k") {
       event.preventDefault();
-      direction = "up";
-      await navigator.step(mode, "up", filterKeyword);
+      await performStep("up");
       return;
     }
 
     if (event.key.toLowerCase() === "m") {
       event.preventDefault();
-      mode = mode === "combined" ? "user" : mode === "user" ? "assistant" : "combined";
-      const position = navigator.getPosition(mode, filterKeyword);
-      console.info("PromptDrive mode changed", { mode, position, direction });
+      const nextMode =
+        state.mode === "combined" ? "user" : state.mode === "user" ? "assistant" : "combined";
+      store.setState({ mode: nextMode });
+      refreshDerivedState();
     }
 
     if (event.key.toLowerCase() === "f") {
       event.preventDefault();
-      filterKeyword = "";
-      console.info("PromptDrive filter cleared");
+      store.setState({ filterKeyword: "" });
+      refreshDerivedState();
     }
   });
 
   const observer = new MutationObserver(() => {
-    navigator.refresh();
+    refreshDerivedState();
   });
 
   observer.observe(document.body, { subtree: true, childList: true });
+
+  window.addEventListener("resize", () => {
+    topBar.syncLayout();
+  });
+
+  window.setInterval(() => {
+    const messages = navigator.getAllMessages();
+    store.setState({ stats: statsService.build(messages) });
+    topBar.syncLayout();
+  }, 30000);
+
+  window.addEventListener("beforeunload", () => {
+    observer.disconnect();
+    themeObserver.disconnect();
+  });
 }
 
 void bootstrap();

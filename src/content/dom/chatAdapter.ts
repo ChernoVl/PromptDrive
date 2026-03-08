@@ -76,9 +76,9 @@ export class ChatAdapter {
     const beforeCount = this.collectMessages().length;
 
     if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+      scrollContainer.scrollTo({ top: 0, behavior: "auto" });
     } else {
-      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+      window.scrollTo({ top: 0, behavior: "auto" });
     }
 
     await new Promise((resolve) => setTimeout(resolve, 350));
