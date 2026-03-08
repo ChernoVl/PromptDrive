@@ -50,7 +50,7 @@ describe("NavigatorService", () => {
     expect(second.message?.domId).toBe("m2");
   });
 
-  test("filters only user messages for keyword", async () => {
+  test("filters selected mode messages for keyword", async () => {
     const messages = [
       makeMessage("m1", "user", "search token"),
       makeMessage("m2", "assistant", "search token"),
@@ -66,7 +66,7 @@ describe("NavigatorService", () => {
 
     const result = await navigator.step("combined", "down", "search");
     expect(result.message?.domId).toBe("m1");
-    expect(result.total).toBe(1);
+    expect(result.total).toBe(2);
   });
 
   test("jumps by lane percent", async () => {

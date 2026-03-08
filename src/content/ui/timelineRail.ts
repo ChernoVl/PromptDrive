@@ -3,6 +3,8 @@ import type { EdgeClickMode, TimelineMarker, TimelineModel } from "@shared/types
 interface TimelineRailHandlers {
   onTrackPercentClick: (percentY: number) => void;
   onMarkerClick: (domId: string) => void;
+  onModeStepUp: () => void;
+  onModeStepDown: () => void;
 }
 
 function createMarkerElement(marker: TimelineMarker): HTMLButtonElement {
@@ -32,11 +34,24 @@ export class TimelineRail {
     const root = document.createElement("aside");
     root.className = "pd-timeline-rail";
     root.setAttribute("aria-label", "PromptDrive timeline rail");
-    root.innerHTML = `<div class="pd-timeline-track" data-id="track"></div>`;
+    root.innerHTML = `
+      <div class="pd-timeline-track" data-id="track"></div>
+      <div class="pd-timeline-nav">
+        <button type="button" data-id="mode-up" title="Previous in current mode">^</button>
+        <button type="button" data-id="mode-down" title="Next in current mode">v</button>
+      </div>
+    `;
 
     document.body.append(root);
     this.element = root;
     this.track = root.querySelector<HTMLElement>("[data-id='track']")!;
+
+    root.querySelector<HTMLButtonElement>("[data-id='mode-up']")!.addEventListener("click", () =>
+      handlers.onModeStepUp()
+    );
+    root.querySelector<HTMLButtonElement>("[data-id='mode-down']")!.addEventListener("click", () =>
+      handlers.onModeStepDown()
+    );
 
     this.track.addEventListener("click", (event) => {
       const markerTarget = (event.target as HTMLElement).closest<HTMLElement>(".pd-line-marker");
@@ -72,10 +87,15 @@ export class TimelineRail {
     this.renderTrack(markers);
   }
 
-  syncLayout(topOffset: number, bottomOffset: number): void {
+  syncLayout(topOffset: number, bottomOffset: number, rightOffset: number): void {
     this.ensureMounted();
     this.element.style.top = `${topOffset}px`;
     this.element.style.bottom = `${bottomOffset}px`;
+    this.element.style.right = `${rightOffset}px`;
+  }
+
+  setHidden(hidden: boolean): void {
+    this.element.style.display = hidden ? "none" : "";
   }
 
   private renderTrack(markers: TimelineMarker[]): void {

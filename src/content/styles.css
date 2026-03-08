@@ -49,6 +49,17 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--pd-muted, rgba(234, 238, 241, 0.73));
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pd-brand-link {
+  text-transform: none;
+  text-decoration: none;
+  font-size: 10px;
+  color: var(--pd-accent, #9cc8ff);
+  opacity: 0.88;
 }
 
 .pd-field {
@@ -114,6 +125,14 @@
   color: var(--pd-accent, #9cc8ff);
 }
 
+.pd-kbd-hint {
+  border: 1px dashed var(--pd-border, rgba(255, 255, 255, 0.24));
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 10px;
+  color: var(--pd-muted, rgba(234, 238, 241, 0.72));
+}
+
 .pd-stats {
   display: flex;
   flex-wrap: wrap;
@@ -124,6 +143,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.pd-quick-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
 .pd-small-btn {
@@ -153,17 +179,53 @@
   color: var(--pd-text, #f0f2f4);
 }
 
+.pd-bookmark-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--pd-bg, #121315) 70%, transparent);
+}
+
+.pd-bookmark-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pd-text, #f0f2f4);
+  font-size: 11px;
+  padding: 6px 7px;
+  cursor: pointer;
+}
+
+.pd-bookmark-item:hover {
+  border-color: var(--pd-border, rgba(255, 255, 255, 0.24));
+  background: color-mix(in srgb, var(--pd-accent, #9cc8ff) 12%, transparent);
+}
+
+.pd-bookmark-empty {
+  color: var(--pd-muted, rgba(234, 238, 241, 0.7));
+  font-size: 11px;
+  padding: 8px;
+}
+
 .pd-timeline-rail {
   position: fixed;
-  right: 6px;
-  width: 20px;
+  right: 18px;
+  width: 28px;
   z-index: 2147482995;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.16));
   border-radius: 12px;
   background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.72)) 85%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 5px 3px;
+  padding: 5px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .pd-timeline-track {
@@ -184,7 +246,7 @@
 .pd-line-marker {
   position: absolute;
   transform: translateY(-50%);
-  width: 8px;
+  width: 10px;
   height: 2px;
   border-radius: 2px;
   border: 1px solid transparent;
@@ -195,28 +257,62 @@
 
 .pd-line-marker--user {
   left: 3px;
+  background: color-mix(in srgb, #70f0d4 78%, transparent);
 }
 
 .pd-line-marker--assistant {
   right: 3px;
+  background: color-mix(in srgb, #74b9ff 78%, transparent);
 }
 
 .pd-line-marker--bookmark {
-  width: 10px;
+  width: 12px;
   height: 3px;
-  background: color-mix(in srgb, var(--pd-accent, #9cc8ff) 76%, transparent);
+  background: color-mix(in srgb, #ffcf66 86%, transparent);
 }
 
 .pd-marker--active {
   height: 4px;
-  border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 82%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pd-accent, #9cc8ff) 24%, transparent);
+  border-color: color-mix(in srgb, #ffd16d 88%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, #ffd16d 28%, transparent);
+}
+
+.pd-timeline-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pd-timeline-nav button {
+  height: 20px;
+  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--pd-bg, #121315) 75%, transparent);
+  color: var(--pd-text, #f0f2f4);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
 }
 
 .pd-topbar-spacer {
   width: 100%;
   height: 0;
   pointer-events: none;
+}
+
+.pd-unhide-btn {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 2147483001;
+  height: 30px;
+  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.22));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.8)) 88%, transparent);
+  color: var(--pd-text, #f0f2f4);
+  font-size: 11px;
+  padding: 0 10px;
+  cursor: pointer;
 }
 
 @keyframes pd-glow-fade {

@@ -1,18 +1,26 @@
 import { ChatAdapter } from "@content/dom/chatAdapter";
 import type { PromptDriveState } from "@content/state/store";
-import type { EdgeClickMode, NavMode } from "@shared/types";
+import type { EdgeClickMode, NavMode, StepDirection } from "@shared/types";
+
+export interface BookmarkListItem {
+  id: string;
+  label: string;
+}
 
 interface TopBarHandlers {
   onModeChange: (mode: NavMode) => void;
   onEdgeClickModeChange: (mode: EdgeClickMode) => void;
   onStepUp: () => void;
   onStepDown: () => void;
+  onDirectStep: (mode: NavMode, direction: StepDirection) => void;
   onFilterChange: (keyword: string) => void;
   onToggleExpanded: () => void;
+  onToggleUiHidden: () => void;
   onAddMessageBookmark: () => void;
   onAddSelectionBookmark: () => void;
   onPrevBookmark: () => void;
   onNextBookmark: () => void;
+  onSelectBookmark: (bookmarkId: string) => void;
 }
 
 function formatTime(value: string | undefined): string {
@@ -62,8 +70,13 @@ export class TopBar {
   private readonly addSelectionButton: HTMLButtonElement;
   private readonly prevBookmarkButton: HTMLButtonElement;
   private readonly nextBookmarkButton: HTMLButtonElement;
+  private readonly bookmarksListButton: HTMLButtonElement;
+  private readonly bookmarkListContainer: HTMLElement;
+  private readonly hideUiButton: HTMLButtonElement;
   private readonly expandButton: HTMLButtonElement;
   private readonly advancedRow: HTMLElement;
+  private readonly quickNavButtons: NodeListOf<HTMLButtonElement>;
+  private bookmarkListOpen = false;
 
   constructor(private readonly adapter: ChatAdapter, handlers: TopBarHandlers) {
     const root = document.createElement("section");
@@ -73,8 +86,11 @@ export class TopBar {
 
     root.innerHTML = `
       <div class="pd-topbar-main">
-        <div class="pd-brand">PromptDrive</div>
-        <label class="pd-field">
+        <div class="pd-brand">
+          PromptDrive
+          <a class="pd-brand-link" href="https://github.com/ChernoVl/PromptDrive" target="_blank" rel="noreferrer" title="Open GitHub repo">repo</a>
+        </div>
+        <label class="pd-field" title="Which messages arrows and percent-jump should use">
           <span class="pd-label">Mode</span>
           <select data-id="mode">
             <option value="combined">Combined</option>
@@ -82,32 +98,41 @@ export class TopBar {
             <option value="assistant">GPT</option>
           </select>
         </label>
-        <label class="pd-field">
+        <label class="pd-field" title="Percent Jump: click anywhere on timeline to jump by relative chat position. Markers Only: only marker clicks jump.">
           <span class="pd-label">Edge</span>
           <select data-id="edge">
             <option value="percentNearest">Percent Jump</option>
             <option value="markersOnly">Markers Only</option>
           </select>
         </label>
-        <div class="pd-step-controls">
-          <button type="button" class="pd-step-btn" data-id="step-up" aria-label="Scroll to previous message">↑</button>
-          <button type="button" class="pd-step-btn" data-id="step-down" aria-label="Scroll to next message">↓</button>
+        <div class="pd-step-controls" title="Navigate in current mode">
+          <button type="button" class="pd-step-btn" data-id="step-up" aria-label="Previous in current mode">^</button>
+          <button type="button" class="pd-step-btn" data-id="step-down" aria-label="Next in current mode">v</button>
         </div>
+        <div class="pd-kbd-hint" title="Keyboard shortcuts">Alt+J/K</div>
         <div class="pd-position" data-id="position">0 / 0</div>
-        <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false">
-          More
-        </button>
+        <button type="button" class="pd-expand-btn" data-id="hide-ui" title="Hide all PromptDrive bars">Hide</button>
+        <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false">More</button>
       </div>
       <div class="pd-topbar-advanced" data-id="advanced" hidden>
-        <label class="pd-field pd-filter">
-          <span>Filter (You)</span>
+        <label class="pd-field pd-filter" title="Filter messages by keyword in selected mode">
+          <span>Filter</span>
           <input data-id="filter" type="text" placeholder="keyword" />
         </label>
         <div class="pd-bookmark-controls">
-          <button type="button" class="pd-small-btn" data-id="bookmark-msg">+ Msg</button>
-          <button type="button" class="pd-small-btn" data-id="bookmark-sel">+ Sel</button>
-          <button type="button" class="pd-small-btn" data-id="bookmark-prev">Prev BM</button>
-          <button type="button" class="pd-small-btn" data-id="bookmark-next">Next BM</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-msg" title="Bookmark current highlighted message">+ Msg</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-sel" title="Bookmark selected text in a message">+ Sel</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-prev" title="Go to previous bookmark">Prev BM</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-next" title="Go to next bookmark">Next BM</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-list" title="Show bookmark list">List</button>
+        </div>
+        <div class="pd-quick-nav" title="Direct mode navigation (does not change selected mode)">
+          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="up">Any ^</button>
+          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="down">Any v</button>
+          <button type="button" class="pd-small-btn" data-mode="user" data-dir="up">You ^</button>
+          <button type="button" class="pd-small-btn" data-mode="user" data-dir="down">You v</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up">GPT ^</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down">GPT v</button>
         </div>
         <div class="pd-stats">
           <div class="pd-chip">Bookmarks <strong data-id="stat-bookmarks">0</strong></div>
@@ -117,6 +142,7 @@ export class TopBar {
           <div class="pd-chip">Last <strong data-id="stat-last">n/a</strong></div>
           <div class="pd-chip">Idle <strong data-id="stat-idle">n/a</strong></div>
         </div>
+        <div class="pd-bookmark-list" data-id="bookmark-list-container" hidden></div>
       </div>
     `;
 
@@ -140,8 +166,12 @@ export class TopBar {
     this.addSelectionButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-sel']")!;
     this.prevBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-prev']")!;
     this.nextBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-next']")!;
+    this.bookmarksListButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-list']")!;
+    this.bookmarkListContainer = root.querySelector<HTMLElement>("[data-id='bookmark-list-container']")!;
+    this.hideUiButton = root.querySelector<HTMLButtonElement>("[data-id='hide-ui']")!;
     this.expandButton = root.querySelector<HTMLButtonElement>("[data-id='expand']")!;
     this.advancedRow = root.querySelector<HTMLElement>("[data-id='advanced']")!;
+    this.quickNavButtons = root.querySelectorAll<HTMLButtonElement>(".pd-quick-nav button");
 
     this.modeSelect.addEventListener("change", () =>
       handlers.onModeChange(this.modeSelect.value as NavMode)
@@ -155,10 +185,36 @@ export class TopBar {
       handlers.onFilterChange(this.filterInput.value)
     );
     this.expandButton.addEventListener("click", () => handlers.onToggleExpanded());
+    this.hideUiButton.addEventListener("click", () => handlers.onToggleUiHidden());
     this.addBookmarkButton.addEventListener("click", () => handlers.onAddMessageBookmark());
     this.addSelectionButton.addEventListener("click", () => handlers.onAddSelectionBookmark());
     this.prevBookmarkButton.addEventListener("click", () => handlers.onPrevBookmark());
     this.nextBookmarkButton.addEventListener("click", () => handlers.onNextBookmark());
+    this.bookmarksListButton.addEventListener("click", () => {
+      this.bookmarkListOpen = !this.bookmarkListOpen;
+      this.bookmarkListContainer.hidden = !this.bookmarkListOpen;
+      this.bookmarksListButton.textContent = this.bookmarkListOpen ? "Close List" : "List";
+    });
+
+    this.quickNavButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const mode = button.dataset.mode as NavMode | undefined;
+        const dir = button.dataset.dir as StepDirection | undefined;
+        if (!mode || !dir) {
+          return;
+        }
+        handlers.onDirectStep(mode, dir);
+      });
+    });
+
+    this.bookmarkListContainer.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-bookmark-id]");
+      const bookmarkId = target?.dataset.bookmarkId;
+      if (!bookmarkId) {
+        return;
+      }
+      handlers.onSelectBookmark(bookmarkId);
+    });
   }
 
   update(state: PromptDriveState): void {
@@ -179,6 +235,22 @@ export class TopBar {
     this.advancedRow.hidden = !state.expanded;
     this.expandButton.setAttribute("aria-expanded", state.expanded ? "true" : "false");
     this.expandButton.textContent = state.expanded ? "Less" : "More";
+  }
+
+  setBookmarkItems(items: BookmarkListItem[]): void {
+    if (items.length === 0) {
+      this.bookmarkListContainer.innerHTML = `<div class="pd-bookmark-empty">No bookmarks yet.</div>`;
+      return;
+    }
+
+    this.bookmarkListContainer.innerHTML = items
+      .map(
+        (item) =>
+          `<button type="button" class="pd-bookmark-item" data-bookmark-id="${item.id}" title="${item.label}">
+            ${item.label}
+          </button>`
+      )
+      .join("");
   }
 
   syncLayout(): void {

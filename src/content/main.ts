@@ -7,8 +7,8 @@ import { ThemeBridge } from "@content/style/themeBridge";
 import { StatsService } from "@content/stats/statsService";
 import { TimelineService } from "@content/timeline/timelineService";
 import { TimelineRail } from "@content/ui/timelineRail";
-import { TopBar } from "@content/ui/topBar";
-import type { StepDirection } from "@shared/types";
+import { TopBar, type BookmarkListItem } from "@content/ui/topBar";
+import type { ChatMessage, StepDirection } from "@shared/types";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -24,6 +24,31 @@ function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+function createRestoreButton(onClick: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pd-unhide-btn";
+  button.textContent = "Show PromptDrive";
+  button.title = "Restore PromptDrive bars";
+  button.hidden = true;
+  button.addEventListener("click", onClick);
+  document.body.append(button);
+  return button;
+}
+
+function buildBookmarkListItems(bookmarks: ReturnType<BookmarkService["getForChat"]>, messages: ChatMessage[]): BookmarkListItem[] {
+  return bookmarks.map((bookmark, index) => {
+    const message = messages.find((item) => item.fingerprint === bookmark.messageFingerprint);
+    const text =
+      (bookmark.selectionText ?? message?.text ?? "Message").trim().replace(/\s+/g, " ");
+    const preview = text.length > 62 ? `${text.slice(0, 62)}...` : text;
+    return {
+      id: bookmark.id,
+      label: `${index + 1}. ${preview}`
+    };
+  });
+}
+
 async function bootstrap(): Promise<void> {
   if (!location.hostname.includes("chatgpt.com")) {
     return;
@@ -37,13 +62,14 @@ async function bootstrap(): Promise<void> {
   const bookmarkService = new BookmarkService();
   const store = new PromptDriveStore();
   const themeBridge = new ThemeBridge();
+  const restoreButton = createRestoreButton(() => store.setState({ uiHidden: false }));
   let currentChatId = adapter.getChatId();
   const branchTransferDone = new Set<string>();
   const branchTransferInFlight = new Set<string>();
 
   await bookmarkService.load();
 
-  const getCurrentMessage = (): ReturnType<NavigatorService["getAllMessages"]>[number] | null => {
+  const getCurrentMessage = (): ChatMessage | null => {
     const currentDomId = navigator.getCurrentDomId();
     const messages = navigator.getAllMessages();
     if (currentDomId) {
@@ -56,7 +82,7 @@ async function bootstrap(): Promise<void> {
     return messages[messages.length - 1] ?? null;
   };
 
-  const getMessageForSelection = (): ReturnType<NavigatorService["getAllMessages"]>[number] | null => {
+  const getMessageForSelection = (): ChatMessage | null => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
       return null;
@@ -82,17 +108,54 @@ async function bootstrap(): Promise<void> {
     return messages.find((message) => message.element.contains(anchorElement)) ?? null;
   };
 
+  const jumpToBookmarkId = async (bookmarkId: string): Promise<void> => {
+    const bookmark = bookmarkService.getForChat(currentChatId).find((item) => item.id === bookmarkId);
+    if (!bookmark) {
+      return;
+    }
+
+    const targetMessage = navigator
+      .getAllMessages()
+      .find((message) => message.fingerprint === bookmark.messageFingerprint);
+
+    if (!targetMessage) {
+      return;
+    }
+
+    await navigator.jumpToMessageById(targetMessage.domId, "combined", "");
+    refreshDerivedState();
+  };
+
+  const performStep = async (
+    direction: StepDirection,
+    modeOverride?: "combined" | "user" | "assistant",
+    ignoreFilter = false
+  ): Promise<void> => {
+    const current = store.getState();
+    const mode = modeOverride ?? current.mode;
+    const keywordFilter = ignoreFilter ? "" : current.filterKeyword;
+    await navigator.step(mode, direction, keywordFilter);
+    store.setState({ direction });
+    refreshDerivedState();
+  };
+
   const topBar = new TopBar(adapter, {
     onModeChange: (mode) => {
       store.setState({ mode });
       refreshDerivedState();
     },
-    onEdgeClickModeChange: (edgeClickMode) => store.setState({ edgeClickMode }),
+    onEdgeClickModeChange: (edgeClickMode) => {
+      store.setState({ edgeClickMode });
+      refreshDerivedState();
+    },
     onStepUp: () => {
       void performStep("up");
     },
     onStepDown: () => {
       void performStep("down");
+    },
+    onDirectStep: (mode, direction) => {
+      void performStep(direction, mode, true);
     },
     onFilterChange: (filterKeyword) => {
       store.setState({ filterKeyword });
@@ -101,15 +164,19 @@ async function bootstrap(): Promise<void> {
     onToggleExpanded: () => {
       store.setState({ expanded: !store.getState().expanded });
     },
+    onToggleUiHidden: () => {
+      store.setState({ uiHidden: !store.getState().uiHidden });
+    },
     onAddMessageBookmark: () => {
       const message = getCurrentMessage();
       if (!message) {
         return;
       }
 
-      void bookmarkService.addMessageBookmark(currentChatId, message).then(() => {
-        refreshDerivedState();
-      });
+      void bookmarkService
+        .addMessageBookmark(currentChatId, message)
+        .then(() => navigator.jumpToMessageById(message.domId, "combined", ""))
+        .then(() => refreshDerivedState());
     },
     onAddSelectionBookmark: () => {
       const selection = window.getSelection();
@@ -123,11 +190,10 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      void bookmarkService.addSelectionBookmark(currentChatId, message, text).then((created) => {
-        if (created) {
-          refreshDerivedState();
-        }
-      });
+      void bookmarkService
+        .addSelectionBookmark(currentChatId, message, text)
+        .then((created) => (created ? navigator.jumpToMessageById(message.domId, "combined", "") : null))
+        .then(() => refreshDerivedState());
     },
     onPrevBookmark: () => {
       const target = bookmarkService.getNextBookmarkTarget(
@@ -160,6 +226,9 @@ async function bootstrap(): Promise<void> {
       void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
         refreshDerivedState();
       });
+    },
+    onSelectBookmark: (bookmarkId) => {
+      void jumpToBookmarkId(bookmarkId);
     }
   });
 
@@ -172,10 +241,24 @@ async function bootstrap(): Promise<void> {
     onMarkerClick: async (domId) => {
       await navigator.jumpToMessageById(domId, "combined", "");
       refreshDerivedState();
+    },
+    onModeStepUp: () => {
+      void performStep("up");
+    },
+    onModeStepDown: () => {
+      void performStep("down");
     }
   });
 
   store.subscribe((state) => {
+    const hidden = state.uiHidden;
+    topBar.element.style.display = hidden ? "none" : "";
+    timelineRail.setHidden(hidden);
+    restoreButton.hidden = !hidden;
+    if (hidden) {
+      return;
+    }
+
     topBar.update(state);
     topBar.syncLayout();
 
@@ -183,7 +266,9 @@ async function bootstrap(): Promise<void> {
     const composerTop = adapter.getComposerTopOffset();
     const topOffset = Math.max(topRect.bottom + 8, adapter.getHeaderBottomOffset() + 56);
     const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
-    timelineRail.syncLayout(topOffset, bottomOffset);
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    const rightOffset = Math.max(12, scrollbarWidth + 14);
+    timelineRail.syncLayout(topOffset, bottomOffset, rightOffset);
   });
 
   const themeObserver = themeBridge.observe();
@@ -212,6 +297,7 @@ async function bootstrap(): Promise<void> {
     const position = navigator.getPosition(current.mode, current.filterKeyword);
     const stats = statsService.build(messages);
     const timelineModel = timelineService.build(messages, chatBookmarks, navigator.getCurrentDomId());
+    topBar.setBookmarkItems(buildBookmarkListItems(chatBookmarks, messages));
 
     if (!branchTransferDone.has(currentChatId) && !branchTransferInFlight.has(currentChatId)) {
       branchTransferInFlight.add(currentChatId);
@@ -236,13 +322,6 @@ async function bootstrap(): Promise<void> {
 
   refreshDerivedState();
 
-  const performStep = async (direction: StepDirection): Promise<void> => {
-    const current = store.getState();
-    await navigator.step(current.mode, direction, current.filterKeyword);
-    store.setState({ direction });
-    refreshDerivedState();
-  };
-
   window.addEventListener("keydown", async (event) => {
     const state = store.getState();
     if (!state.shortcutsEnabled || !event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) {
@@ -262,6 +341,12 @@ async function bootstrap(): Promise<void> {
     if (event.key.toLowerCase() === "k") {
       event.preventDefault();
       await performStep("up");
+      return;
+    }
+
+    if (event.key.toLowerCase() === "h") {
+      event.preventDefault();
+      store.setState({ uiHidden: !store.getState().uiHidden });
       return;
     }
 
@@ -293,7 +378,9 @@ async function bootstrap(): Promise<void> {
   window.setInterval(() => {
     const messages = navigator.getAllMessages();
     store.setState({ stats: statsService.build(messages) });
-    topBar.syncLayout();
+    if (!store.getState().uiHidden) {
+      topBar.syncLayout();
+    }
   }, 30000);
 
   window.addEventListener("beforeunload", () => {

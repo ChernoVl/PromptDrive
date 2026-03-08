@@ -9,7 +9,9 @@ describe("TimelineRail", () => {
     const onTrackPercentClick = vi.fn();
     const rail = new TimelineRail({
       onTrackPercentClick,
-      onMarkerClick: vi.fn()
+      onMarkerClick: vi.fn(),
+      onModeStepUp: vi.fn(),
+      onModeStepDown: vi.fn()
     });
     rail.update(EMPTY_MODEL, "percentNearest");
 
@@ -27,7 +29,9 @@ describe("TimelineRail", () => {
     const onTrackPercentClick = vi.fn();
     const rail = new TimelineRail({
       onTrackPercentClick,
-      onMarkerClick: vi.fn()
+      onMarkerClick: vi.fn(),
+      onModeStepUp: vi.fn(),
+      onModeStepDown: vi.fn()
     });
     rail.update(EMPTY_MODEL, "markersOnly");
 

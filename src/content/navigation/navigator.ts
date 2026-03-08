@@ -212,17 +212,23 @@ export class NavigatorService {
   }
 
   private scrollTargetToCenter(element: HTMLElement): void {
-    if (typeof element.scrollIntoView === "function") {
-      element.scrollIntoView({
-        block: "center",
-        inline: "nearest",
+    const scrollContainer = this.findScrollableAncestor(element);
+    const elementRect = element.getBoundingClientRect();
+
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const offsetWithinContainer = elementRect.top - containerRect.top;
+      const desiredTop =
+        scrollContainer.scrollTop + offsetWithinContainer - scrollContainer.clientHeight / 2;
+
+      scrollContainer.scrollTo({
+        top: Math.max(0, desiredTop),
         behavior: "smooth"
       });
       return;
     }
 
-    const rect = element.getBoundingClientRect();
-    const scrollTop = window.scrollY + rect.top - window.innerHeight / 2;
+    const scrollTop = window.scrollY + elementRect.top - window.innerHeight / 2;
     window.scrollTo({ top: Math.max(0, scrollTop), behavior: "smooth" });
   }
 
@@ -244,11 +250,8 @@ export class NavigatorService {
       return fromMode;
     }
 
-    // Keyword filter is intentionally constrained to user messages.
-    return fromMode.filter(
-      (message) =>
-        message.role === "user" &&
-        message.text.toLowerCase().includes(normalizedKeyword)
+    return fromMode.filter((message) =>
+      message.text.toLowerCase().includes(normalizedKeyword)
     );
   }
 
@@ -269,4 +272,21 @@ export class NavigatorService {
     return messages.findIndex((message) => message.domId === this.currentDomId);
   }
 
+  private findScrollableAncestor(element: HTMLElement): HTMLElement | null {
+    let node: HTMLElement | null = element.parentElement;
+
+    while (node) {
+      const style = getComputedStyle(node);
+      const overflowY = style.overflowY.toLowerCase();
+      const scrollable =
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight + 4;
+      if (scrollable) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+
+    return null;
+  }
 }
