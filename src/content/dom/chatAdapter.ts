@@ -67,24 +67,33 @@ export class ChatAdapter {
     return window.innerHeight;
   }
 
-  async tryLoadHistory(direction: StepDirection): Promise<boolean> {
+  async tryLoadHistory(direction: StepDirection, maxAttempts = 3): Promise<boolean> {
     if (direction !== "up") {
       return false;
     }
 
-    const scrollContainer = this.resolveScrollContainer();
-    const beforeCount = this.collectMessages().length;
+    let hasGrown = false;
 
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: "auto" });
-    } else {
-      window.scrollTo({ top: 0, behavior: "auto" });
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const scrollContainer = this.resolveScrollContainer();
+      const beforeCount = this.collectMessages().length;
+
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: "auto" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 250 + attempt * 120));
+
+      const afterCount = this.collectMessages().length;
+      if (afterCount > beforeCount) {
+        hasGrown = true;
+        break;
+      }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
-    const afterCount = this.collectMessages().length;
-    return afterCount > beforeCount;
+    return hasGrown;
   }
 
   private collectCandidateElements(): HTMLElement[] {

@@ -198,6 +198,18 @@ async function bootstrap(): Promise<void> {
   });
 
   const themeObserver = themeBridge.observe();
+  let refreshTimer: number | null = null;
+
+  const scheduleRefresh = (delayMs = 90): void => {
+    if (refreshTimer !== null) {
+      return;
+    }
+
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = null;
+      refreshDerivedState();
+    }, delayMs);
+  };
 
   const refreshDerivedState = (): void => {
     const resolvedChatId = adapter.getChatId();
@@ -218,7 +230,7 @@ async function bootstrap(): Promise<void> {
         branchTransferInFlight.delete(currentChatId);
         branchTransferDone.add(currentChatId);
         if (transferCount > 0) {
-          refreshDerivedState();
+          scheduleRefresh(0);
         }
       });
     }
@@ -280,7 +292,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const observer = new MutationObserver(() => {
-    refreshDerivedState();
+    scheduleRefresh();
   });
 
   observer.observe(document.body, { subtree: true, childList: true });
@@ -299,6 +311,10 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("beforeunload", () => {
     observer.disconnect();
     themeObserver.disconnect();
+    if (refreshTimer !== null) {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
   });
 }
 

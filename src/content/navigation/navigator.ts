@@ -139,7 +139,7 @@ export class NavigatorService {
 
     if (targetIndex < 0 || targetIndex >= eligible.length) {
       if (canLoadHistory) {
-        const loaded = await this.adapter.tryLoadHistory(direction);
+        const loaded = await this.adapter.tryLoadHistory(direction, 3);
         if (loaded) {
           return this.stepInternal(mode, direction, keywordFilter, false);
         }
