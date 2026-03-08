@@ -10,9 +10,14 @@ async function main() {
     bundle: true,
     outfile: "dist/content.js",
     format: "iife",
+    platform: "browser",
     target: "chrome120",
     sourcemap: false,
-    minify: false
+    minify: false,
+    alias: {
+      "@shared": "./src/shared",
+      "@content": "./src/content"
+    }
   });
 
   await cp("src/manifest.json", "dist/manifest.json");

@@ -1,1 +1,15 @@
-/* PromptDrive styles are injected here. */
+.pd-message-glow {
+  animation: pd-glow-fade 1s ease-out;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #7eb6ff 65%, transparent);
+  border-radius: 14px;
+}
+
+@keyframes pd-glow-fade {
+  0% {
+    background: color-mix(in srgb, #7eb6ff 18%, transparent);
+  }
+
+  100% {
+    background: transparent;
+  }
+}
