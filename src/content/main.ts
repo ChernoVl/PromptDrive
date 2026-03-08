@@ -4,6 +4,8 @@ import { NavigatorService } from "@content/navigation/navigator";
 import { PromptDriveStore } from "@content/state/store";
 import { ThemeBridge } from "@content/style/themeBridge";
 import { StatsService } from "@content/stats/statsService";
+import { TimelineService } from "@content/timeline/timelineService";
+import { TimelineRail } from "@content/ui/timelineRail";
 import { TopBar } from "@content/ui/topBar";
 import type { StepDirection } from "@shared/types";
 
@@ -30,6 +32,7 @@ async function bootstrap(): Promise<void> {
   const highlighter = new MessageHighlighter();
   const navigator = new NavigatorService(adapter, highlighter);
   const statsService = new StatsService();
+  const timelineService = new TimelineService();
   const store = new PromptDriveStore();
   const themeBridge = new ThemeBridge();
 
@@ -49,9 +52,28 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  const timelineRail = new TimelineRail({
+    onLanePercentClick: async (lane, percentY) => {
+      const state = store.getState();
+      await navigator.jumpToPercent(lane, percentY, state.mode, state.filterKeyword);
+      refreshDerivedState();
+    },
+    onMarkerClick: async (_, domId) => {
+      const state = store.getState();
+      await navigator.jumpToMessageById(domId, state.mode, state.filterKeyword);
+      refreshDerivedState();
+    }
+  });
+
   store.subscribe((state) => {
     topBar.update(state);
     topBar.syncLayout();
+
+    const topRect = topBar.element.getBoundingClientRect();
+    const composerTop = adapter.getComposerTopOffset();
+    const topOffset = Math.max(topRect.bottom + 8, adapter.getHeaderBottomOffset() + 56);
+    const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
+    timelineRail.syncLayout(topOffset, bottomOffset);
   });
 
   const themeObserver = themeBridge.observe();
@@ -61,12 +83,15 @@ async function bootstrap(): Promise<void> {
     const messages = navigator.refresh();
     const position = navigator.getPosition(current.mode, current.filterKeyword);
     const stats = statsService.build(messages);
+    const timelineModel = timelineService.build(messages, [], navigator.getCurrentDomId());
 
     store.setState({
       currentIndex: position.currentIndex,
       total: position.total,
       stats
     });
+
+    timelineRail.update(timelineModel, current.edgeClickMode);
   };
 
   refreshDerivedState();

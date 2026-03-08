@@ -63,6 +63,21 @@ export interface TimelineClickContext {
   edgeClickMode: EdgeClickMode;
 }
 
+export type TimelineMarkerKind = "section" | "bookmark";
+
+export interface TimelineMarker {
+  domId: string;
+  lane: TimelineLane;
+  percent: number;
+  kind: TimelineMarkerKind;
+  active: boolean;
+}
+
+export interface TimelineModel {
+  user: TimelineMarker[];
+  assistant: TimelineMarker[];
+}
+
 export interface NavigationResult {
   moved: boolean;
   reason?: "boundary" | "empty" | "not-found";

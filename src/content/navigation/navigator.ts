@@ -35,6 +35,10 @@ export class NavigatorService {
     return this.cache;
   }
 
+  getCurrentDomId(): string | null {
+    return this.currentDomId;
+  }
+
   getPosition(mode: NavMode, keywordFilter: string): { currentIndex: number; total: number } {
     const messages = this.getEffectiveMessages({ mode, keywordFilter });
     if (messages.length === 0) {
