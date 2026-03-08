@@ -6,12 +6,12 @@
 
 .pd-topbar {
   --pd-radius: 14px;
-  --pd-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  --pd-shadow: 0 9px 24px rgba(0, 0, 0, 0.2);
   position: fixed;
   z-index: 2147483000;
   left: 50%;
   transform: translateX(-50%);
-  width: min(980px, calc(100vw - 24px));
+  width: min(960px, calc(100vw - 20px));
   color: var(--pd-text, #f0f2f4);
   background: var(--pd-surface, rgba(20, 22, 26, 0.72));
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.14));
@@ -30,12 +30,12 @@
 .pd-topbar-advanced {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 7px 9px;
 }
 
 .pd-topbar-main {
-  min-height: 42px;
+  min-height: 38px;
 }
 
 .pd-topbar-advanced {
@@ -44,7 +44,7 @@
 }
 
 .pd-brand {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -55,20 +55,25 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--pd-muted, rgba(234, 238, 241, 0.73));
+}
+
+.pd-label {
+  opacity: 0.84;
 }
 
 .pd-field select,
 .pd-field input,
-.pd-expand-btn {
-  height: 30px;
-  border-radius: 10px;
+.pd-expand-btn,
+.pd-step-btn {
+  height: 28px;
+  border-radius: 9px;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.18));
   background: color-mix(in srgb, var(--pd-bg, #121315) 74%, transparent);
   color: var(--pd-text, #f0f2f4);
-  font-size: 12px;
-  padding: 0 10px;
+  font-size: 11px;
+  padding: 0 9px;
 }
 
 .pd-field input::placeholder {
@@ -76,18 +81,35 @@
 }
 
 .pd-filter input {
-  width: 180px;
+  width: 160px;
 }
 
 .pd-expand-btn {
   cursor: pointer;
 }
 
+.pd-step-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pd-step-btn {
+  width: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.pd-step-btn.is-active {
+  border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 68%, var(--pd-border, rgba(255, 255, 255, 0.2)));
+  background: color-mix(in srgb, var(--pd-accent, #9cc8ff) 18%, transparent);
+}
+
 .pd-position {
   margin-left: auto;
-  min-width: 74px;
+  min-width: 62px;
   text-align: right;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--pd-accent, #9cc8ff);
 }
@@ -105,13 +127,13 @@
 }
 
 .pd-small-btn {
-  height: 28px;
+  height: 26px;
   border-radius: 9px;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
   background: color-mix(in srgb, var(--pd-bg, #121315) 74%, transparent);
   color: var(--pd-text, #f0f2f4);
-  font-size: 11px;
-  padding: 0 9px;
+  font-size: 10px;
+  padding: 0 8px;
   cursor: pointer;
 }
 
@@ -122,98 +144,79 @@
   border-radius: 999px;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
   padding: 5px 9px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--pd-muted, rgba(234, 238, 241, 0.72));
 }
 
 .pd-chip strong {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--pd-text, #f0f2f4);
 }
 
 .pd-timeline-rail {
   position: fixed;
-  right: 8px;
-  width: 34px;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr auto 1fr;
-  gap: 6px;
-  align-items: stretch;
+  right: 6px;
+  width: 20px;
   z-index: 2147482995;
   border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.16));
-  border-radius: 14px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.72)) 85%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 6px 5px;
+  padding: 5px 3px;
 }
 
-.pd-rail-label {
-  text-align: center;
-  font-size: 10px;
-  color: var(--pd-muted, rgba(234, 238, 241, 0.7));
-  font-weight: 600;
-}
-
-.pd-lane {
+.pd-timeline-track {
   position: relative;
-  border-radius: 999px;
+  height: 100%;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--pd-border, rgba(255, 255, 255, 0.2)) 88%, transparent);
   background: color-mix(in srgb, var(--pd-bg, #121315) 70%, transparent);
-  min-height: 100px;
+  min-height: 120px;
   cursor: pointer;
   transition: border-color 120ms ease;
 }
 
-.pd-lane:hover {
+.pd-timeline-track:hover {
   border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 45%, var(--pd-border, rgba(255, 255, 255, 0.2)));
 }
 
-.pd-marker {
+.pd-line-marker {
   position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  height: 2px;
+  border-radius: 2px;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--pd-muted, rgba(234, 238, 241, 0.7)) 68%, transparent);
   padding: 0;
   cursor: pointer;
 }
 
-.pd-marker--bookmark {
-  width: 9px;
-  height: 9px;
+.pd-line-marker--user {
+  left: 3px;
+}
+
+.pd-line-marker--assistant {
+  right: 3px;
+}
+
+.pd-line-marker--bookmark {
+  width: 10px;
+  height: 3px;
   background: color-mix(in srgb, var(--pd-accent, #9cc8ff) 76%, transparent);
 }
 
 .pd-marker--active {
-  width: 10px;
-  height: 10px;
+  height: 4px;
   border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 82%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pd-accent, #9cc8ff) 24%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pd-accent, #9cc8ff) 24%, transparent);
 }
 
-.pd-step-dot {
-  position: fixed;
-  right: 12px;
-  z-index: 2147482996;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid var(--pd-border, rgba(255, 255, 255, 0.2));
-  background: color-mix(in srgb, var(--pd-surface, rgba(20, 22, 26, 0.72)) 84%, transparent);
-  color: var(--pd-text, #f0f2f4);
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.25);
-}
-
-.pd-step-dot:hover {
-  border-color: color-mix(in srgb, var(--pd-accent, #9cc8ff) 60%, var(--pd-border, rgba(255, 255, 255, 0.2)));
+.pd-topbar-spacer {
+  width: 100%;
+  height: 0;
+  pointer-events: none;
 }
 
 @keyframes pd-glow-fade {

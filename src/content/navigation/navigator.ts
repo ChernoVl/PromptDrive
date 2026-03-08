@@ -90,6 +90,38 @@ export class NavigatorService {
     return this.jumpToMessage(target, eligible);
   }
 
+  async jumpToCombinedPercent(
+    percentY: number,
+    mode: NavMode,
+    keywordFilter: string
+  ): Promise<NavigationResult> {
+    this.refresh();
+    const eligible = this.getEffectiveMessages({ mode, keywordFilter });
+
+    if (eligible.length === 0) {
+      return {
+        moved: false,
+        reason: "empty",
+        currentIndex: 0,
+        total: 0
+      };
+    }
+
+    const boundedPercent = Math.min(1, Math.max(0, percentY));
+    const targetIndex = Math.round((eligible.length - 1) * boundedPercent);
+    const target = eligible[targetIndex];
+    if (!target) {
+      return {
+        moved: false,
+        reason: "not-found",
+        currentIndex: this.findCurrentIndex(eligible) + 1,
+        total: eligible.length
+      };
+    }
+
+    return this.jumpToMessage(target, eligible);
+  }
+
   async jumpToMessageById(
     domId: string,
     mode: NavMode,
@@ -180,10 +212,25 @@ export class NavigatorService {
   }
 
   private scrollTargetToCenter(element: HTMLElement): void {
-    const bounds = element.getBoundingClientRect();
-    const scrollTop = window.scrollY + bounds.top - window.innerHeight / 2;
-    window.scrollTo({
-      top: Math.max(0, scrollTop),
+    const scrollContainer = this.resolveScrollContainer(element);
+    const elementRect = element.getBoundingClientRect();
+
+    if (!scrollContainer) {
+      const scrollTop = window.scrollY + elementRect.top - window.innerHeight / 2;
+      window.scrollTo({
+        top: Math.max(0, scrollTop),
+        behavior: "smooth"
+      });
+      return;
+    }
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const offsetWithinContainer = elementRect.top - containerRect.top;
+    const centeredTop =
+      scrollContainer.scrollTop + offsetWithinContainer - scrollContainer.clientHeight / 2;
+
+    scrollContainer.scrollTo({
+      top: Math.max(0, centeredTop),
       behavior: "smooth"
     });
   }
@@ -229,5 +276,21 @@ export class NavigatorService {
     }
 
     return messages.findIndex((message) => message.domId === this.currentDomId);
+  }
+
+  private resolveScrollContainer(element: HTMLElement): HTMLElement | null {
+    let node: HTMLElement | null = element.parentElement;
+
+    while (node) {
+      const style = getComputedStyle(node);
+      const isScrollable = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
+      if (isScrollable) {
+        return node;
+      }
+
+      node = node.parentElement;
+    }
+
+    return null;
   }
 }

@@ -1,6 +1,6 @@
 import type { Bookmark, ChatMessage, TimelineLane, TimelineMarker, TimelineModel } from "@shared/types";
 
-const MAX_SECTION_MARKERS_PER_LANE = 40;
+const MAX_SECTION_MARKERS_PER_LANE = 56;
 
 function sampleMessages(messages: ChatMessage[], maxMarkers: number): ChatMessage[] {
   if (messages.length <= maxMarkers) {
@@ -37,12 +37,12 @@ function buildMarkersForLane(
 ): TimelineMarker[] {
   const laneMessages = messages.filter((message) => message.role === lane);
   const sampledMessages = sampleMessages(laneMessages, MAX_SECTION_MARKERS_PER_LANE);
-  const sectionMarkers = sampledMessages.map((message, index) => ({
+  const sectionMarkers = sampledMessages.map((message) => ({
     domId: message.domId,
     lane,
     percent: computePercent(
-      laneMessages.findIndex((item) => item.domId === message.domId),
-      laneMessages.length
+      messages.findIndex((item) => item.domId === message.domId),
+      messages.length
     ),
     kind: "section" as const,
     active: message.domId === activeDomId
@@ -56,7 +56,10 @@ function buildMarkersForLane(
     .map((message) => ({
       domId: message.domId,
       lane,
-      percent: computePercent(laneMessages.findIndex((item) => item.domId === message.domId), laneMessages.length),
+      percent: computePercent(
+        messages.findIndex((item) => item.domId === message.domId),
+        messages.length
+      ),
       kind: "bookmark" as const,
       active: message.domId === activeDomId
     }));

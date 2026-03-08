@@ -6,7 +6,6 @@ import { PromptDriveStore } from "@content/state/store";
 import { ThemeBridge } from "@content/style/themeBridge";
 import { StatsService } from "@content/stats/statsService";
 import { TimelineService } from "@content/timeline/timelineService";
-import { StepDot } from "@content/ui/stepDot";
 import { TimelineRail } from "@content/ui/timelineRail";
 import { TopBar } from "@content/ui/topBar";
 import type { StepDirection } from "@shared/types";
@@ -88,8 +87,13 @@ async function bootstrap(): Promise<void> {
       store.setState({ mode });
       refreshDerivedState();
     },
-    onDirectionChange: (direction) => store.setState({ direction }),
     onEdgeClickModeChange: (edgeClickMode) => store.setState({ edgeClickMode }),
+    onStepUp: () => {
+      void performStep("up");
+    },
+    onStepDown: () => {
+      void performStep("down");
+    },
     onFilterChange: (filterKeyword) => {
       store.setState({ filterKeyword });
       refreshDerivedState();
@@ -160,35 +164,20 @@ async function bootstrap(): Promise<void> {
   });
 
   const timelineRail = new TimelineRail({
-    onLanePercentClick: async (lane, percentY) => {
+    onTrackPercentClick: async (percentY) => {
       const state = store.getState();
-      await navigator.jumpToPercent(lane, percentY, state.mode, state.filterKeyword);
+      await navigator.jumpToCombinedPercent(percentY, state.mode, state.filterKeyword);
       refreshDerivedState();
     },
-    onMarkerClick: async (_, domId) => {
-      const state = store.getState();
-      await navigator.jumpToMessageById(domId, state.mode, state.filterKeyword);
+    onMarkerClick: async (domId) => {
+      await navigator.jumpToMessageById(domId, "combined", "");
       refreshDerivedState();
-    }
-  });
-
-  const stepDot = new StepDot(adapter, {
-    onStep: () => {
-      const current = store.getState();
-      void performStep(current.direction);
-    },
-    onFlipDirection: () => {
-      const current = store.getState();
-      store.setState({ direction: current.direction === "down" ? "up" : "down" });
-      stepDot.update(store.getState().direction);
     }
   });
 
   store.subscribe((state) => {
     topBar.update(state);
     topBar.syncLayout();
-    stepDot.update(state.direction);
-    stepDot.syncLayout();
 
     const topRect = topBar.element.getBoundingClientRect();
     const composerTop = adapter.getComposerTopOffset();
@@ -299,7 +288,6 @@ async function bootstrap(): Promise<void> {
 
   window.addEventListener("resize", () => {
     topBar.syncLayout();
-    stepDot.syncLayout();
   });
 
   window.setInterval(() => {

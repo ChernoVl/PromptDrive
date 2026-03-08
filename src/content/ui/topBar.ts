@@ -1,11 +1,12 @@
 import { ChatAdapter } from "@content/dom/chatAdapter";
 import type { PromptDriveState } from "@content/state/store";
-import type { EdgeClickMode, NavMode, StepDirection } from "@shared/types";
+import type { EdgeClickMode, NavMode } from "@shared/types";
 
 interface TopBarHandlers {
   onModeChange: (mode: NavMode) => void;
-  onDirectionChange: (direction: StepDirection) => void;
   onEdgeClickModeChange: (mode: EdgeClickMode) => void;
+  onStepUp: () => void;
+  onStepDown: () => void;
   onFilterChange: (keyword: string) => void;
   onToggleExpanded: () => void;
   onAddMessageBookmark: () => void;
@@ -43,10 +44,12 @@ function formatIdleSeconds(value: number | undefined): string {
 
 export class TopBar {
   readonly element: HTMLElement;
+  private readonly spacer: HTMLElement;
 
   private readonly modeSelect: HTMLSelectElement;
-  private readonly directionSelect: HTMLSelectElement;
   private readonly edgeModeSelect: HTMLSelectElement;
+  private readonly stepUpButton: HTMLButtonElement;
+  private readonly stepDownButton: HTMLButtonElement;
   private readonly filterInput: HTMLInputElement;
   private readonly positionLabel: HTMLElement;
   private readonly statsUserMessages: HTMLElement;
@@ -72,7 +75,7 @@ export class TopBar {
       <div class="pd-topbar-main">
         <div class="pd-brand">PromptDrive</div>
         <label class="pd-field">
-          <span>Mode</span>
+          <span class="pd-label">Mode</span>
           <select data-id="mode">
             <option value="combined">Combined</option>
             <option value="user">You</option>
@@ -80,19 +83,16 @@ export class TopBar {
           </select>
         </label>
         <label class="pd-field">
-          <span>Dir</span>
-          <select data-id="direction">
-            <option value="down">Down</option>
-            <option value="up">Up</option>
-          </select>
-        </label>
-        <label class="pd-field">
-          <span>Edge</span>
+          <span class="pd-label">Edge</span>
           <select data-id="edge">
             <option value="percentNearest">Percent Jump</option>
             <option value="markersOnly">Markers Only</option>
           </select>
         </label>
+        <div class="pd-step-controls">
+          <button type="button" class="pd-step-btn" data-id="step-up" aria-label="Scroll to previous message">↑</button>
+          <button type="button" class="pd-step-btn" data-id="step-down" aria-label="Scroll to next message">↓</button>
+        </div>
         <div class="pd-position" data-id="position">0 / 0</div>
         <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false">
           More
@@ -122,10 +122,12 @@ export class TopBar {
 
     document.body.append(root);
     this.element = root;
+    this.spacer = this.ensureSpacer();
 
     this.modeSelect = root.querySelector<HTMLSelectElement>("[data-id='mode']")!;
-    this.directionSelect = root.querySelector<HTMLSelectElement>("[data-id='direction']")!;
     this.edgeModeSelect = root.querySelector<HTMLSelectElement>("[data-id='edge']")!;
+    this.stepUpButton = root.querySelector<HTMLButtonElement>("[data-id='step-up']")!;
+    this.stepDownButton = root.querySelector<HTMLButtonElement>("[data-id='step-down']")!;
     this.filterInput = root.querySelector<HTMLInputElement>("[data-id='filter']")!;
     this.positionLabel = root.querySelector<HTMLElement>("[data-id='position']")!;
     this.statsUserMessages = root.querySelector<HTMLElement>("[data-id='stat-user-msgs']")!;
@@ -144,12 +146,11 @@ export class TopBar {
     this.modeSelect.addEventListener("change", () =>
       handlers.onModeChange(this.modeSelect.value as NavMode)
     );
-    this.directionSelect.addEventListener("change", () =>
-      handlers.onDirectionChange(this.directionSelect.value as StepDirection)
-    );
     this.edgeModeSelect.addEventListener("change", () =>
       handlers.onEdgeClickModeChange(this.edgeModeSelect.value as EdgeClickMode)
     );
+    this.stepUpButton.addEventListener("click", () => handlers.onStepUp());
+    this.stepDownButton.addEventListener("click", () => handlers.onStepDown());
     this.filterInput.addEventListener("input", () =>
       handlers.onFilterChange(this.filterInput.value)
     );
@@ -162,10 +163,11 @@ export class TopBar {
 
   update(state: PromptDriveState): void {
     this.modeSelect.value = state.mode;
-    this.directionSelect.value = state.direction;
     this.edgeModeSelect.value = state.edgeClickMode;
     this.filterInput.value = state.filterKeyword;
     this.positionLabel.textContent = `${state.currentIndex} / ${state.total}`;
+    this.stepUpButton.classList.toggle("is-active", state.direction === "up");
+    this.stepDownButton.classList.toggle("is-active", state.direction === "down");
 
     this.statsUserMessages.textContent = `${state.stats.userMessageCount}`;
     this.statsUserWords.textContent = `${state.stats.userWordCount}`;
@@ -180,7 +182,22 @@ export class TopBar {
   }
 
   syncLayout(): void {
-    const top = this.adapter.getHeaderBottomOffset() + 8;
+    const top = this.adapter.getHeaderBottomOffset() + 6;
     this.element.style.top = `${top}px`;
+    const height = Math.ceil(this.element.getBoundingClientRect().height) + 10;
+    this.spacer.style.height = `${height}px`;
+  }
+
+  private ensureSpacer(): HTMLElement {
+    const existing = document.querySelector<HTMLElement>(".pd-topbar-spacer");
+    if (existing) {
+      return existing;
+    }
+
+    const spacer = document.createElement("div");
+    spacer.className = "pd-topbar-spacer";
+    const host = document.querySelector<HTMLElement>("main") ?? document.body;
+    host.prepend(spacer);
+    return spacer;
   }
 }
