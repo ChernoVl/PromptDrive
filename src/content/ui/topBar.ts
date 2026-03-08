@@ -20,6 +20,7 @@ interface TopBarHandlers {
   onAddSelectionBookmark: () => void;
   onPrevBookmark: () => void;
   onNextBookmark: () => void;
+  onClearBookmarks: () => void;
   onSelectBookmark: (bookmarkId: string) => void;
   onDeleteBookmark: (bookmarkId: string) => void;
 }
@@ -77,6 +78,7 @@ export class TopBar {
   private readonly prevBookmarkButton: HTMLButtonElement;
   private readonly nextBookmarkButton: HTMLButtonElement;
   private readonly bookmarksListButton: HTMLButtonElement;
+  private readonly clearBookmarksButton: HTMLButtonElement;
   private readonly bookmarkListContainer: HTMLElement;
   private readonly hideUiButton: HTMLButtonElement;
   private readonly expandButton: HTMLButtonElement;
@@ -121,18 +123,23 @@ export class TopBar {
         <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false" title="Show more controls and stats">More</button>
       </div>
       <div class="pd-topbar-advanced" data-id="advanced" hidden>
-        <label class="pd-field pd-filter" title="Filter messages by keyword in selected mode">
-          <span>Filter</span>
-          <input data-id="filter" type="text" placeholder="keyword" />
-        </label>
-        <div class="pd-bookmark-controls">
+        <div class="pd-advanced-group">
+          <label class="pd-field pd-filter" title="Filter messages by keyword in selected mode">
+            <span>Filter</span>
+            <input data-id="filter" type="text" placeholder="keyword" />
+          </label>
+        </div>
+        <span class="pd-divider" aria-hidden="true"></span>
+        <div class="pd-bookmark-controls pd-advanced-group">
           <button type="button" class="pd-small-btn" data-id="bookmark-msg" title="Bookmark current highlighted message">+ Msg</button>
           <button type="button" class="pd-small-btn" data-id="bookmark-sel" title="Bookmark selected text in a message">+ Sel</button>
           <button type="button" class="pd-small-btn" data-id="bookmark-prev" title="Go to previous bookmark">Prev BM</button>
           <button type="button" class="pd-small-btn" data-id="bookmark-next" title="Go to next bookmark">Next BM</button>
-          <button type="button" class="pd-small-btn" data-id="bookmark-list" title="Show or hide bookmark list">List</button>
+          <button type="button" class="pd-small-btn pd-list-toggle" data-id="bookmark-list" title="Show or hide bookmark list">List</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-clear" title="Delete all bookmarks in this chat">Clear BM</button>
         </div>
-        <div class="pd-quick-nav" title="Direct mode navigation (does not change selected mode)">
+        <span class="pd-divider" aria-hidden="true"></span>
+        <div class="pd-quick-nav pd-advanced-group" title="Direct mode navigation (does not change selected mode)">
           <button type="button" class="pd-small-btn" data-mode="combined" data-dir="up" title="Previous message (all)">Any ^</button>
           <button type="button" class="pd-small-btn" data-mode="combined" data-dir="down" title="Next message (all)">Any v</button>
           <button type="button" class="pd-small-btn" data-mode="user" data-dir="up" title="Previous your message">You ^</button>
@@ -140,7 +147,8 @@ export class TopBar {
           <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up" title="Previous GPT message">GPT ^</button>
           <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down" title="Next GPT message">GPT v</button>
         </div>
-        <div class="pd-stats">
+        <span class="pd-divider" aria-hidden="true"></span>
+        <div class="pd-stats pd-advanced-group">
           <div class="pd-chip" title="Number of bookmarks in this chat">Bookmarks <strong data-id="stat-bookmarks">0</strong></div>
           <div class="pd-chip" title="How many messages you sent in this chat">Your msgs <strong data-id="stat-user-msgs">0</strong></div>
           <div class="pd-chip" title="Total word count of your messages">Your words <strong data-id="stat-user-words">0</strong></div>
@@ -176,6 +184,7 @@ export class TopBar {
     this.prevBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-prev']")!;
     this.nextBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-next']")!;
     this.bookmarksListButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-list']")!;
+    this.clearBookmarksButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-clear']")!;
     this.bookmarkListContainer = root.querySelector<HTMLElement>("[data-id='bookmark-list-container']")!;
     this.hideUiButton = root.querySelector<HTMLButtonElement>("[data-id='hide-ui']")!;
     this.expandButton = root.querySelector<HTMLButtonElement>("[data-id='expand']")!;
@@ -202,11 +211,12 @@ export class TopBar {
     this.bookmarksListButton.addEventListener("click", () => {
       this.bookmarkListOpen = !this.bookmarkListOpen;
       this.bookmarkListContainer.hidden = !this.bookmarkListOpen;
-      this.bookmarksListButton.textContent = this.bookmarkListOpen ? "Close List" : "List";
+      this.bookmarksListButton.textContent = this.bookmarkListOpen ? "Close" : "List";
       this.bookmarksListButton.title = this.bookmarkListOpen
         ? "Hide bookmark list"
         : "Show bookmark list";
     });
+    this.clearBookmarksButton.addEventListener("click", () => handlers.onClearBookmarks());
 
     this.quickNavButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -283,6 +293,7 @@ export class TopBar {
         ? `Time since latest message. ${NA_TIME_HINT}`
         : `Time since latest message: ${idleValue}`;
     this.statsBookmarks.textContent = `${state.bookmarkCount}`;
+    this.clearBookmarksButton.disabled = state.bookmarkCount === 0;
 
     this.advancedRow.hidden = !state.expanded;
     this.expandButton.setAttribute("aria-expanded", state.expanded ? "true" : "false");

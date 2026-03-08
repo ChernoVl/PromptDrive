@@ -333,6 +333,42 @@ function scrollRectToCenter(range: Range, contextElement: HTMLElement): void {
   window.scrollTo({ top: Math.max(0, desiredWindowTop), behavior: "smooth" });
 }
 
+let highlightedRangeText: string | null = null;
+let highlightedRangeTimer: number | null = null;
+
+function highlightSelectionRange(range: Range): void {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const text = range.toString().trim();
+  if (!text) {
+    return;
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+  highlightedRangeText = text;
+
+  if (highlightedRangeTimer !== null) {
+    window.clearTimeout(highlightedRangeTimer);
+  }
+
+  highlightedRangeTimer = window.setTimeout(() => {
+    const activeSelection = window.getSelection();
+    if (
+      activeSelection &&
+      activeSelection.rangeCount > 0 &&
+      activeSelection.toString().trim() === highlightedRangeText
+    ) {
+      activeSelection.removeAllRanges();
+    }
+    highlightedRangeText = null;
+    highlightedRangeTimer = null;
+  }, 1100);
+}
+
 function resolveBookmarkOccurrence(
   bookmarkService: BookmarkService,
   message: ChatMessage,
@@ -451,6 +487,7 @@ async function bootstrap(): Promise<void> {
       );
       if (range) {
         scrollRectToCenter(range, target.message.element);
+        highlightSelectionRange(range);
       }
     }
 
@@ -590,6 +627,23 @@ async function bootstrap(): Promise<void> {
 
       void jumpToBookmarkTarget(target);
     },
+    onClearBookmarks: () => {
+      const count = bookmarkService.getBookmarkCount(currentChatId);
+      if (count === 0) {
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Delete all ${count} bookmark${count === 1 ? "" : "s"} in this chat?`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      void bookmarkService.removeAllForChat(currentChatId).then(() => {
+        refreshDerivedState();
+      });
+    },
     onSelectBookmark: (bookmarkId) => {
       const target = resolveBookmarkTargetById(bookmarkId);
       if (!target) {
@@ -598,6 +652,10 @@ async function bootstrap(): Promise<void> {
       void jumpToBookmarkTarget(target);
     },
     onDeleteBookmark: (bookmarkId) => {
+      const confirmed = window.confirm("Delete this bookmark?");
+      if (!confirmed) {
+        return;
+      }
       void bookmarkService.removeBookmark(bookmarkId).then(() => {
         refreshDerivedState();
       });

@@ -80,4 +80,20 @@ describe("BookmarkService", () => {
     const prev = service.getNextBookmarkTarget("chat-1", "m1", messages, "up");
     expect(prev?.message.domId).toBe("m3");
   });
+
+  test("removes all bookmarks for a specific chat", async () => {
+    const service = new BookmarkService();
+    await service.load();
+
+    const messageA = createMessage("a1", "user", "fp-a1");
+    const messageB = createMessage("b1", "assistant", "fp-b1");
+    await service.addMessageBookmark("chat-a", messageA);
+    await service.addMessageBookmark("chat-a", messageB);
+    await service.addMessageBookmark("chat-b", messageA);
+
+    const removed = await service.removeAllForChat("chat-a");
+    expect(removed).toBe(2);
+    expect(service.getBookmarkCount("chat-a")).toBe(0);
+    expect(service.getBookmarkCount("chat-b")).toBe(1);
+  });
 });

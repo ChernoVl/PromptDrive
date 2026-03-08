@@ -196,6 +196,16 @@ export class BookmarkService {
     }
   }
 
+  async removeAllForChat(chatId: string): Promise<number> {
+    const before = this.bookmarks.length;
+    this.bookmarks = this.bookmarks.filter((bookmark) => bookmark.chatId !== chatId);
+    const removed = before - this.bookmarks.length;
+    if (removed > 0) {
+      await this.persist();
+    }
+    return removed;
+  }
+
   resolveSelectionBookmarkRange(messageText: string, bookmark: Bookmark): { start: number; end: number } | null {
     return this.anchorResolver.resolveRange(messageText, bookmark);
   }
