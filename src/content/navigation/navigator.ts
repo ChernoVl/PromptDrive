@@ -64,6 +64,39 @@ export class NavigatorService {
       return;
     }
 
+    const first = eligible[0];
+    const last = eligible[eligible.length - 1];
+    if (!first || !last) {
+      return;
+    }
+
+    const container = this.findScrollableAncestor(first.element);
+    if (container) {
+      if (container.scrollTop <= 4) {
+        this.currentDomId = first.domId;
+        return;
+      }
+
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 4) {
+        this.currentDomId = last.domId;
+        return;
+      }
+    } else {
+      if (window.scrollY <= 4) {
+        this.currentDomId = first.domId;
+        return;
+      }
+
+      const docHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      );
+      if (window.scrollY + window.innerHeight >= docHeight - 4) {
+        this.currentDomId = last.domId;
+        return;
+      }
+    }
+
     const viewportCenter = window.innerHeight / 2;
     let bestMessage: ChatMessage | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;

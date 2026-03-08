@@ -246,8 +246,6 @@ export class TopBar {
         : "Markers Only: only line markers are clickable jump targets.";
     this.filterInput.value = state.filterKeyword;
     this.positionLabel.textContent = `${state.currentIndex} / ${state.total}`;
-    this.stepUpButton.classList.toggle("is-active", state.direction === "up");
-    this.stepDownButton.classList.toggle("is-active", state.direction === "down");
     const naturalBoundary =
       state.total === 0
         ? null

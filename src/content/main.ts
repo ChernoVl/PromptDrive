@@ -492,6 +492,7 @@ async function bootstrap(): Promise<void> {
 
   const topBar = new TopBar(adapter, {
     onModeChange: (mode) => {
+      navigator.syncCurrentToViewport(mode, store.getState().filterKeyword);
       store.setState({ mode });
       refreshDerivedState();
     },
@@ -509,6 +510,7 @@ async function bootstrap(): Promise<void> {
       void performStep(direction, mode, true);
     },
     onFilterChange: (filterKeyword) => {
+      navigator.syncCurrentToViewport(store.getState().mode, filterKeyword);
       store.setState({ filterKeyword });
       refreshDerivedState();
     },
@@ -667,7 +669,6 @@ async function bootstrap(): Promise<void> {
     const current = store.getState();
     const messages = navigator.refresh();
     const chatBookmarks = bookmarkService.getForChat(currentChatId);
-    navigator.syncCurrentToViewport(current.mode, current.filterKeyword);
     const position = navigator.getPosition(current.mode, current.filterKeyword);
     const naturalBoundary = getNaturalBoundaryDirection(position.currentIndex, position.total);
     const stats = statsService.build(messages);
@@ -751,6 +752,8 @@ async function bootstrap(): Promise<void> {
   observer.observe(document.body, { subtree: true, childList: true });
 
   const onAnyScroll = (): void => {
+    const state = store.getState();
+    navigator.syncCurrentToViewport(state.mode, state.filterKeyword);
     scheduleRefresh(30);
   };
   document.addEventListener("scroll", onAnyScroll, true);

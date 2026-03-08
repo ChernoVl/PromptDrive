@@ -22,7 +22,10 @@ describe("TimelineRail", () => {
     });
 
     track!.dispatchEvent(new MouseEvent("click", { bubbles: true, clientY: 75 }));
-    expect(onTrackPercentClick).toHaveBeenCalledWith(0.75);
+    expect(onTrackPercentClick).toHaveBeenCalledTimes(1);
+    const calledWith = onTrackPercentClick.mock.calls[0]?.[0];
+    expect(calledWith).toBeGreaterThan(0.75);
+    expect(calledWith).toBeLessThan(0.78);
   });
 
   test("suppresses track click in markers-only mode", () => {

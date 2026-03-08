@@ -7,6 +7,26 @@ interface TimelineRailHandlers {
   onModeStepDown: () => void;
 }
 
+const TRACK_GUTTER_RATIO = 0.03;
+
+function toTrackPercent(modelPercent: number): number {
+  const bounded = Math.max(0, Math.min(1, modelPercent));
+  return TRACK_GUTTER_RATIO + bounded * (1 - TRACK_GUTTER_RATIO * 2);
+}
+
+function toModelPercent(trackPercent: number): number {
+  const bounded = Math.max(0, Math.min(1, trackPercent));
+  if (bounded <= TRACK_GUTTER_RATIO) {
+    return 0;
+  }
+
+  if (bounded >= 1 - TRACK_GUTTER_RATIO) {
+    return 1;
+  }
+
+  return (bounded - TRACK_GUTTER_RATIO) / (1 - TRACK_GUTTER_RATIO * 2);
+}
+
 function createMarkerElement(marker: TimelineMarker): HTMLButtonElement {
   const markerButton = document.createElement("button");
   markerButton.type = "button";
@@ -18,7 +38,7 @@ function createMarkerElement(marker: TimelineMarker): HTMLButtonElement {
   ]
     .filter(Boolean)
     .join(" ");
-  markerButton.style.top = `${Math.max(0, Math.min(1, marker.percent)) * 100}%`;
+  markerButton.style.top = `${toTrackPercent(marker.percent) * 100}%`;
   markerButton.dataset.domId = marker.domId;
   markerButton.dataset.lane = marker.lane;
   markerButton.title = marker.kind === "bookmark" ? "Bookmark jump" : "Message jump";
@@ -73,14 +93,16 @@ export class TimelineRail {
 
       const rect = this.track.getBoundingClientRect();
       const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-      const percentY = rect.height === 0 ? 0 : offsetY / rect.height;
+      const trackPercent = rect.height === 0 ? 0 : offsetY / rect.height;
+      const percentY = toModelPercent(trackPercent);
       handlers.onTrackPercentClick(percentY);
     });
 
     this.track.addEventListener("mousemove", (event) => {
       const rect = this.track.getBoundingClientRect();
       const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-      const percentY = rect.height === 0 ? 0 : offsetY / rect.height;
+      const trackPercent = rect.height === 0 ? 0 : offsetY / rect.height;
+      const percentY = toModelPercent(trackPercent);
       this.track.setAttribute("title", `${(percentY * 100).toFixed(0)}%`);
     });
   }

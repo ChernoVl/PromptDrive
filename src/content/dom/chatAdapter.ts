@@ -112,6 +112,23 @@ export class ChatAdapter {
       });
     }
 
+    result.sort((left, right) => {
+      if (left === right) {
+        return 0;
+      }
+
+      const relation = left.compareDocumentPosition(right);
+      if (relation & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return -1;
+      }
+
+      if (relation & Node.DOCUMENT_POSITION_PRECEDING) {
+        return 1;
+      }
+
+      return left.getBoundingClientRect().top - right.getBoundingClientRect().top;
+    });
+
     return result;
   }
 
