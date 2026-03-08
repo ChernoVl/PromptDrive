@@ -51,6 +51,8 @@ function formatIdleSeconds(value: number | undefined): string {
   return `${minutes}m ${seconds}s`;
 }
 
+const NA_TIME_HINT = "n/a means ChatGPT did not expose a usable message timestamp for this chat yet.";
+
 export class TopBar {
   readonly element: HTMLElement;
   private readonly spacer: HTMLElement;
@@ -67,6 +69,9 @@ export class TopBar {
   private readonly statsLast: HTMLElement;
   private readonly statsIdle: HTMLElement;
   private readonly statsBookmarks: HTMLElement;
+  private readonly chipFirst: HTMLElement;
+  private readonly chipLast: HTMLElement;
+  private readonly chipIdle: HTMLElement;
   private readonly addBookmarkButton: HTMLButtonElement;
   private readonly addSelectionButton: HTMLButtonElement;
   private readonly prevBookmarkButton: HTMLButtonElement;
@@ -110,10 +115,10 @@ export class TopBar {
           <button type="button" class="pd-step-btn" data-id="step-up" aria-label="Previous in current mode">^</button>
           <button type="button" class="pd-step-btn" data-id="step-down" aria-label="Next in current mode">v</button>
         </div>
-        <div class="pd-kbd-hint" title="Keyboard shortcuts">Alt+J/K</div>
-        <div class="pd-position" data-id="position">0 / 0</div>
+        <div class="pd-kbd-hint" title="Keyboard shortcuts: Alt+J next, Alt+K previous, Alt+H hide/show">Alt+J/K</div>
+        <div class="pd-position" data-id="position" title="Current position in selected Mode">0 / 0</div>
         <button type="button" class="pd-expand-btn" data-id="hide-ui" title="Hide all PromptDrive bars">Hide</button>
-        <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false">More</button>
+        <button type="button" class="pd-expand-btn" data-id="expand" aria-expanded="false" title="Show more controls and stats">More</button>
       </div>
       <div class="pd-topbar-advanced" data-id="advanced" hidden>
         <label class="pd-field pd-filter" title="Filter messages by keyword in selected mode">
@@ -125,23 +130,23 @@ export class TopBar {
           <button type="button" class="pd-small-btn" data-id="bookmark-sel" title="Bookmark selected text in a message">+ Sel</button>
           <button type="button" class="pd-small-btn" data-id="bookmark-prev" title="Go to previous bookmark">Prev BM</button>
           <button type="button" class="pd-small-btn" data-id="bookmark-next" title="Go to next bookmark">Next BM</button>
-          <button type="button" class="pd-small-btn" data-id="bookmark-list" title="Show bookmark list">List</button>
+          <button type="button" class="pd-small-btn" data-id="bookmark-list" title="Show or hide bookmark list">List</button>
         </div>
         <div class="pd-quick-nav" title="Direct mode navigation (does not change selected mode)">
-          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="up">Any ^</button>
-          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="down">Any v</button>
-          <button type="button" class="pd-small-btn" data-mode="user" data-dir="up">You ^</button>
-          <button type="button" class="pd-small-btn" data-mode="user" data-dir="down">You v</button>
-          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up">GPT ^</button>
-          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down">GPT v</button>
+          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="up" title="Previous message (all)">Any ^</button>
+          <button type="button" class="pd-small-btn" data-mode="combined" data-dir="down" title="Next message (all)">Any v</button>
+          <button type="button" class="pd-small-btn" data-mode="user" data-dir="up" title="Previous your message">You ^</button>
+          <button type="button" class="pd-small-btn" data-mode="user" data-dir="down" title="Next your message">You v</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="up" title="Previous GPT message">GPT ^</button>
+          <button type="button" class="pd-small-btn" data-mode="assistant" data-dir="down" title="Next GPT message">GPT v</button>
         </div>
         <div class="pd-stats">
-          <div class="pd-chip">Bookmarks <strong data-id="stat-bookmarks">0</strong></div>
-          <div class="pd-chip">Your msgs <strong data-id="stat-user-msgs">0</strong></div>
-          <div class="pd-chip">Your words <strong data-id="stat-user-words">0</strong></div>
-          <div class="pd-chip">First <strong data-id="stat-first">n/a</strong></div>
-          <div class="pd-chip">Last <strong data-id="stat-last">n/a</strong></div>
-          <div class="pd-chip">Idle <strong data-id="stat-idle">n/a</strong></div>
+          <div class="pd-chip" title="Number of bookmarks in this chat">Bookmarks <strong data-id="stat-bookmarks">0</strong></div>
+          <div class="pd-chip" title="How many messages you sent in this chat">Your msgs <strong data-id="stat-user-msgs">0</strong></div>
+          <div class="pd-chip" title="Total word count of your messages">Your words <strong data-id="stat-user-words">0</strong></div>
+          <div class="pd-chip" data-id="chip-first" title="Timestamp of first message in this chat">First <strong data-id="stat-first">n/a</strong></div>
+          <div class="pd-chip" data-id="chip-last" title="Timestamp of latest message in this chat">Last <strong data-id="stat-last">n/a</strong></div>
+          <div class="pd-chip" data-id="chip-idle" title="Seconds since latest message">Idle <strong data-id="stat-idle">n/a</strong></div>
         </div>
         <div class="pd-bookmark-list" data-id="bookmark-list-container" hidden></div>
       </div>
@@ -163,6 +168,9 @@ export class TopBar {
     this.statsLast = root.querySelector<HTMLElement>("[data-id='stat-last']")!;
     this.statsIdle = root.querySelector<HTMLElement>("[data-id='stat-idle']")!;
     this.statsBookmarks = root.querySelector<HTMLElement>("[data-id='stat-bookmarks']")!;
+    this.chipFirst = root.querySelector<HTMLElement>("[data-id='chip-first']")!;
+    this.chipLast = root.querySelector<HTMLElement>("[data-id='chip-last']")!;
+    this.chipIdle = root.querySelector<HTMLElement>("[data-id='chip-idle']")!;
     this.addBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-msg']")!;
     this.addSelectionButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-sel']")!;
     this.prevBookmarkButton = root.querySelector<HTMLButtonElement>("[data-id='bookmark-prev']")!;
@@ -195,6 +203,9 @@ export class TopBar {
       this.bookmarkListOpen = !this.bookmarkListOpen;
       this.bookmarkListContainer.hidden = !this.bookmarkListOpen;
       this.bookmarksListButton.textContent = this.bookmarkListOpen ? "Close List" : "List";
+      this.bookmarksListButton.title = this.bookmarkListOpen
+        ? "Hide bookmark list"
+        : "Show bookmark list";
     });
 
     this.quickNavButtons.forEach((button) => {
@@ -229,23 +240,58 @@ export class TopBar {
   update(state: PromptDriveState): void {
     this.modeSelect.value = state.mode;
     this.edgeModeSelect.value = state.edgeClickMode;
+    this.edgeModeSelect.title =
+      state.edgeClickMode === "percentNearest"
+        ? "Percent Jump: click anywhere on the rail to jump by relative chat position."
+        : "Markers Only: only line markers are clickable jump targets.";
     this.filterInput.value = state.filterKeyword;
     this.positionLabel.textContent = `${state.currentIndex} / ${state.total}`;
     this.stepUpButton.classList.toggle("is-active", state.direction === "up");
     this.stepDownButton.classList.toggle("is-active", state.direction === "down");
-    this.stepUpButton.classList.toggle("is-boundary", state.boundaryHint === "up");
-    this.stepDownButton.classList.toggle("is-boundary", state.boundaryHint === "down");
+    const naturalBoundary =
+      state.total === 0
+        ? null
+        : state.currentIndex <= 1
+          ? "up"
+          : state.currentIndex >= state.total
+            ? "down"
+            : null;
+    const visibleBoundary = state.boundaryHint ?? naturalBoundary;
+    this.stepUpButton.classList.toggle("is-boundary", visibleBoundary === "up");
+    this.stepDownButton.classList.toggle("is-boundary", visibleBoundary === "down");
+    this.quickNavButtons.forEach((button) => {
+      const direction = button.dataset.dir as StepDirection | undefined;
+      button.classList.toggle("is-boundary", direction !== undefined && direction === visibleBoundary);
+    });
 
     this.statsUserMessages.textContent = `${state.stats.userMessageCount}`;
     this.statsUserWords.textContent = `${state.stats.userWordCount}`;
-    this.statsFirst.textContent = formatTime(state.stats.firstMessageAt);
-    this.statsLast.textContent = formatTime(state.stats.lastMessageAt);
-    this.statsIdle.textContent = formatIdleSeconds(state.stats.idleSeconds);
+    const firstValue = formatTime(state.stats.firstMessageAt);
+    const lastValue = formatTime(state.stats.lastMessageAt);
+    const idleValue = formatIdleSeconds(state.stats.idleSeconds);
+    this.statsFirst.textContent = firstValue;
+    this.statsLast.textContent = lastValue;
+    this.statsIdle.textContent = idleValue;
+    this.chipFirst.title =
+      firstValue === "n/a"
+        ? `Timestamp of first message in this chat. ${NA_TIME_HINT}`
+        : `Timestamp of first message in this chat: ${firstValue}`;
+    this.chipLast.title =
+      lastValue === "n/a"
+        ? `Timestamp of latest message in this chat. ${NA_TIME_HINT}`
+        : `Timestamp of latest message in this chat: ${lastValue}`;
+    this.chipIdle.title =
+      idleValue === "n/a"
+        ? `Time since latest message. ${NA_TIME_HINT}`
+        : `Time since latest message: ${idleValue}`;
     this.statsBookmarks.textContent = `${state.bookmarkCount}`;
 
     this.advancedRow.hidden = !state.expanded;
     this.expandButton.setAttribute("aria-expanded", state.expanded ? "true" : "false");
     this.expandButton.textContent = state.expanded ? "Less" : "More";
+    this.expandButton.title = state.expanded
+      ? "Collapse advanced controls"
+      : "Show more controls and stats";
   }
 
   setBookmarkItems(items: BookmarkListItem[]): void {

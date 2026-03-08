@@ -1,14 +1,25 @@
-import { BookmarkService } from "@content/bookmarks/bookmarkService";
+import { BookmarkService, type BookmarkTarget } from "@content/bookmarks/bookmarkService";
 import { ChatAdapter } from "@content/dom/chatAdapter";
 import { MessageHighlighter } from "@content/highlight/highlighter";
 import { NavigatorService } from "@content/navigation/navigator";
-import { PromptDriveStore } from "@content/state/store";
+import { PromptDriveStore, type PromptDriveState } from "@content/state/store";
 import { ThemeBridge } from "@content/style/themeBridge";
 import { StatsService } from "@content/stats/statsService";
 import { TimelineService } from "@content/timeline/timelineService";
 import { TimelineRail } from "@content/ui/timelineRail";
 import { TopBar, type BookmarkListItem } from "@content/ui/topBar";
-import type { ChatMessage, StepDirection } from "@shared/types";
+import type { Bookmark, ChatMessage, StepDirection } from "@shared/types";
+
+interface TextSegment {
+  node: Text;
+  start: number;
+  end: number;
+}
+
+interface NormalizedTextMap {
+  text: string;
+  normalizedToRaw: number[];
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -36,17 +47,313 @@ function createRestoreButton(onClick: () => void): HTMLButtonElement {
   return button;
 }
 
-function buildBookmarkListItems(bookmarks: ReturnType<BookmarkService["getForChat"]>, messages: ChatMessage[]): BookmarkListItem[] {
+function buildBookmarkListItems(
+  bookmarks: ReturnType<BookmarkService["getForChat"]>,
+  messages: ChatMessage[]
+): BookmarkListItem[] {
   return bookmarks.map((bookmark, index) => {
     const message = messages.find((item) => item.fingerprint === bookmark.messageFingerprint);
-    const text =
-      (bookmark.selectionText ?? message?.text ?? "Message").trim().replace(/\s+/g, " ");
+    const text = (bookmark.selectionText ?? message?.text ?? "Message")
+      .trim()
+      .replace(/\s+/g, " ");
     const preview = text.length > 62 ? `${text.slice(0, 62)}...` : text;
     return {
       id: bookmark.id,
       label: `${index + 1}. ${preview}`
     };
   });
+}
+
+function getNaturalBoundaryDirection(currentIndex: number, total: number): StepDirection | null {
+  if (total === 0 || currentIndex === 0) {
+    return null;
+  }
+
+  if (currentIndex <= 1) {
+    return "up";
+  }
+
+  if (currentIndex >= total) {
+    return "down";
+  }
+
+  return null;
+}
+
+function getVisibleBoundaryDirection(state: PromptDriveState): StepDirection | null {
+  return state.boundaryHint ?? getNaturalBoundaryDirection(state.currentIndex, state.total);
+}
+
+function normalizeForSearch(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function buildNormalizedMap(rawText: string): NormalizedTextMap {
+  let normalized = "";
+  const normalizedToRaw: number[] = [];
+  let hasContent = false;
+  let pendingSpaceRawIndex: number | null = null;
+
+  for (let index = 0; index < rawText.length; index += 1) {
+    const char = rawText[index];
+    if (char === undefined) {
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (hasContent && pendingSpaceRawIndex === null) {
+        pendingSpaceRawIndex = index;
+      }
+      continue;
+    }
+
+    if (pendingSpaceRawIndex !== null) {
+      normalized += " ";
+      normalizedToRaw.push(pendingSpaceRawIndex);
+      pendingSpaceRawIndex = null;
+    }
+
+    normalized += char.toLowerCase();
+    normalizedToRaw.push(index);
+    hasContent = true;
+  }
+
+  return { text: normalized, normalizedToRaw };
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) {
+    return 0;
+  }
+
+  let count = 0;
+  let fromIndex = 0;
+
+  while (fromIndex <= haystack.length) {
+    const foundAt = haystack.indexOf(needle, fromIndex);
+    if (foundAt < 0) {
+      break;
+    }
+    count += 1;
+    fromIndex = foundAt + Math.max(needle.length, 1);
+  }
+
+  return count;
+}
+
+function indexOfNth(haystack: string, needle: string, occurrence: number): number {
+  if (!needle || occurrence < 0) {
+    return -1;
+  }
+
+  let fromIndex = 0;
+  let foundAt = -1;
+
+  for (let cursor = 0; cursor <= occurrence; cursor += 1) {
+    foundAt = haystack.indexOf(needle, fromIndex);
+    if (foundAt < 0) {
+      return -1;
+    }
+    fromIndex = foundAt + Math.max(needle.length, 1);
+  }
+
+  return foundAt;
+}
+
+function collectVisibleTextSegments(root: HTMLElement): { rawText: string; segments: TextSegment[] } {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node): number {
+      const textNode = node as Text;
+      const value = textNode.nodeValue ?? "";
+      if (!value.trim()) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      const parent = textNode.parentElement;
+      if (!parent) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      if (parent.closest("script, style, .sr-only, [aria-hidden='true']")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  let rawText = "";
+  const segments: TextSegment[] = [];
+  let currentNode = walker.nextNode();
+
+  while (currentNode) {
+    const textNode = currentNode as Text;
+    const value = textNode.nodeValue ?? "";
+    const start = rawText.length;
+    rawText += value;
+    segments.push({ node: textNode, start, end: rawText.length });
+    currentNode = walker.nextNode();
+  }
+
+  return { rawText, segments };
+}
+
+function resolveNodeOffset(
+  segments: TextSegment[],
+  rawIndex: number,
+  preferEnd: boolean
+): { node: Text; offset: number } | null {
+  if (segments.length === 0) {
+    return null;
+  }
+
+  for (const segment of segments) {
+    if (rawIndex < segment.start) {
+      return {
+        node: segment.node,
+        offset: 0
+      };
+    }
+
+    const length = segment.node.nodeValue?.length ?? 0;
+    const withinSegment = rawIndex >= segment.start && rawIndex < segment.end;
+    const atSegmentEnd = preferEnd && rawIndex === segment.end;
+
+    if (withinSegment || atSegmentEnd) {
+      return {
+        node: segment.node,
+        offset: Math.max(0, Math.min(length, rawIndex - segment.start))
+      };
+    }
+  }
+
+  const last = segments[segments.length - 1];
+  if (!last) {
+    return null;
+  }
+
+  return {
+    node: last.node,
+    offset: last.node.nodeValue?.length ?? 0
+  };
+}
+
+function createSelectionRange(
+  messageElement: HTMLElement,
+  selectionText: string,
+  preferredOccurrence: number
+): Range | null {
+  const normalizedSelection = normalizeForSearch(selectionText);
+  if (!normalizedSelection) {
+    return null;
+  }
+
+  const { rawText, segments } = collectVisibleTextSegments(messageElement);
+  if (!rawText || segments.length === 0) {
+    return null;
+  }
+
+  const normalizedMessage = buildNormalizedMap(rawText);
+  if (!normalizedMessage.text) {
+    return null;
+  }
+
+  let normalizedStart = indexOfNth(
+    normalizedMessage.text,
+    normalizedSelection,
+    Math.max(0, preferredOccurrence)
+  );
+  if (normalizedStart < 0) {
+    normalizedStart = normalizedMessage.text.indexOf(normalizedSelection);
+  }
+
+  if (normalizedStart < 0) {
+    return null;
+  }
+
+  const normalizedEnd = normalizedStart + normalizedSelection.length - 1;
+  const rawStart = normalizedMessage.normalizedToRaw[normalizedStart];
+  const rawEnd = normalizedMessage.normalizedToRaw[normalizedEnd];
+
+  if (rawStart === undefined || rawEnd === undefined) {
+    return null;
+  }
+
+  const startPoint = resolveNodeOffset(segments, rawStart, false);
+  const endPoint = resolveNodeOffset(segments, rawEnd + 1, true);
+  if (!startPoint || !endPoint) {
+    return null;
+  }
+
+  const range = document.createRange();
+  range.setStart(startPoint.node, startPoint.offset);
+  range.setEnd(endPoint.node, endPoint.offset);
+  return range;
+}
+
+function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
+  let node: HTMLElement | null = element.parentElement;
+
+  while (node) {
+    const style = getComputedStyle(node);
+    const overflowY = style.overflowY.toLowerCase();
+    const isScrollable =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      node.scrollHeight > node.clientHeight + 4;
+    if (isScrollable) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+function scrollRectToCenter(range: Range, contextElement: HTMLElement): void {
+  const rect = range.getClientRects()[0] ?? range.getBoundingClientRect();
+  if (!rect || rect.height === 0) {
+    return;
+  }
+
+  const scrollContainer = findScrollableAncestor(contextElement);
+  if (scrollContainer) {
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const offsetWithinContainer = rect.top - containerRect.top;
+    const desiredTop =
+      scrollContainer.scrollTop + offsetWithinContainer - scrollContainer.clientHeight / 2;
+
+    scrollContainer.scrollTo({
+      top: Math.max(0, desiredTop),
+      behavior: "smooth"
+    });
+    return;
+  }
+
+  const desiredWindowTop = window.scrollY + rect.top - window.innerHeight / 2;
+  window.scrollTo({ top: Math.max(0, desiredWindowTop), behavior: "smooth" });
+}
+
+function resolveBookmarkOccurrence(
+  bookmarkService: BookmarkService,
+  message: ChatMessage,
+  bookmark: Bookmark
+): number {
+  if (bookmark.kind !== "textRange" || !bookmark.selectionText) {
+    return 0;
+  }
+
+  const resolved = bookmarkService.resolveSelectionBookmarkRange(message.text, bookmark);
+  if (!resolved) {
+    return 0;
+  }
+
+  const normalizedSelection = normalizeForSearch(bookmark.selectionText);
+  if (!normalizedSelection) {
+    return 0;
+  }
+
+  const normalizedBefore = normalizeForSearch(message.text.slice(0, resolved.start));
+  return countOccurrences(normalizedBefore, normalizedSelection);
 }
 
 async function bootstrap(): Promise<void> {
@@ -108,21 +415,45 @@ async function bootstrap(): Promise<void> {
     return messages.find((message) => message.element.contains(anchorElement)) ?? null;
   };
 
-  const jumpToBookmarkId = async (bookmarkId: string): Promise<void> => {
-    const bookmark = bookmarkService.getForChat(currentChatId).find((item) => item.id === bookmarkId);
+  const resolveBookmarkTargetById = (bookmarkId: string): BookmarkTarget | null => {
+    const bookmark = bookmarkService
+      .getForChat(currentChatId)
+      .find((item) => item.id === bookmarkId);
     if (!bookmark) {
-      return;
+      return null;
     }
 
-    const targetMessage = navigator
-      .getAllMessages()
-      .find((message) => message.fingerprint === bookmark.messageFingerprint);
-
-    if (!targetMessage) {
-      return;
+    const messages = navigator.getAllMessages();
+    const index = messages.findIndex(
+      (message) => message.fingerprint === bookmark.messageFingerprint
+    );
+    if (index < 0) {
+      return null;
     }
 
-    await navigator.jumpToMessageById(targetMessage.domId, "combined", "");
+    const message = messages[index];
+    if (!message) {
+      return null;
+    }
+
+    return { bookmark, message, index };
+  };
+
+  const jumpToBookmarkTarget = async (target: BookmarkTarget): Promise<void> => {
+    await navigator.jumpToMessageById(target.message.domId, "combined", "");
+
+    if (target.bookmark.kind === "textRange" && target.bookmark.selectionText) {
+      const occurrence = resolveBookmarkOccurrence(bookmarkService, target.message, target.bookmark);
+      const range = createSelectionRange(
+        target.message.element,
+        target.bookmark.selectionText,
+        occurrence
+      );
+      if (range) {
+        scrollRectToCenter(range, target.message.element);
+      }
+    }
+
     store.setState({ boundaryHint: null });
     refreshDerivedState();
   };
@@ -193,13 +524,12 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      void bookmarkService
-        .addMessageBookmark(currentChatId, message)
-        .then(() => navigator.jumpToMessageById(message.domId, "combined", ""))
-        .then(() => {
-          store.setState({ boundaryHint: null });
-          refreshDerivedState();
-        });
+      void (async () => {
+        await bookmarkService.addMessageBookmark(currentChatId, message);
+        await navigator.jumpToMessageById(message.domId, "combined", "");
+        store.setState({ boundaryHint: null });
+        refreshDerivedState();
+      })();
     },
     onAddSelectionBookmark: () => {
       const selection = window.getSelection();
@@ -213,13 +543,20 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      void bookmarkService
-        .addSelectionBookmark(currentChatId, message, text)
-        .then((created) => (created ? navigator.jumpToMessageById(message.domId, "combined", "") : null))
-        .then(() => {
-          store.setState({ boundaryHint: null });
-          refreshDerivedState();
+      void (async () => {
+        const created = await bookmarkService.addSelectionBookmark(currentChatId, message, text);
+        if (!created) {
+          return;
+        }
+        const index = navigator
+          .getAllMessages()
+          .findIndex((item) => item.fingerprint === message.fingerprint);
+        await jumpToBookmarkTarget({
+          bookmark: created,
+          message,
+          index: Math.max(0, index)
         });
+      })();
     },
     onPrevBookmark: () => {
       navigator.syncCurrentToViewport("combined", "");
@@ -234,10 +571,7 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
-        store.setState({ boundaryHint: null });
-        refreshDerivedState();
-      });
+      void jumpToBookmarkTarget(target);
     },
     onNextBookmark: () => {
       navigator.syncCurrentToViewport("combined", "");
@@ -252,13 +586,14 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      void navigator.jumpToMessageById(target.message.domId, "combined", "").then(() => {
-        store.setState({ boundaryHint: null });
-        refreshDerivedState();
-      });
+      void jumpToBookmarkTarget(target);
     },
     onSelectBookmark: (bookmarkId) => {
-      void jumpToBookmarkId(bookmarkId);
+      const target = resolveBookmarkTargetById(bookmarkId);
+      if (!target) {
+        return;
+      }
+      void jumpToBookmarkTarget(target);
     },
     onDeleteBookmark: (bookmarkId) => {
       void bookmarkService.removeBookmark(bookmarkId).then(() => {
@@ -298,14 +633,14 @@ async function bootstrap(): Promise<void> {
 
     topBar.update(state);
     topBar.syncLayout();
-    timelineRail.setBoundaryHint(state.boundaryHint);
+    timelineRail.setBoundaryHint(getVisibleBoundaryDirection(state));
 
     const topRect = topBar.element.getBoundingClientRect();
     const composerTop = adapter.getComposerTopOffset();
     const topOffset = Math.max(topRect.bottom + 8, adapter.getHeaderBottomOffset() + 56);
     const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
-    const rightOffset = Math.max(24, scrollbarWidth + 24);
+    const rightOffset = Math.max(56, scrollbarWidth + 42);
     timelineRail.syncLayout(topOffset, bottomOffset, rightOffset);
   });
 
@@ -332,7 +667,9 @@ async function bootstrap(): Promise<void> {
     const current = store.getState();
     const messages = navigator.refresh();
     const chatBookmarks = bookmarkService.getForChat(currentChatId);
+    navigator.syncCurrentToViewport(current.mode, current.filterKeyword);
     const position = navigator.getPosition(current.mode, current.filterKeyword);
+    const naturalBoundary = getNaturalBoundaryDirection(position.currentIndex, position.total);
     const stats = statsService.build(messages);
     const timelineModel = timelineService.build(messages, chatBookmarks, navigator.getCurrentDomId());
     topBar.setBookmarkItems(buildBookmarkListItems(chatBookmarks, messages));
@@ -352,7 +689,11 @@ async function bootstrap(): Promise<void> {
       currentIndex: position.currentIndex,
       total: position.total,
       bookmarkCount: chatBookmarks.length,
-      stats
+      stats,
+      boundaryHint:
+        current.boundaryHint !== null && naturalBoundary === current.boundaryHint
+          ? current.boundaryHint
+          : null
     });
 
     timelineRail.update(timelineModel, current.edgeClickMode);
@@ -409,9 +750,16 @@ async function bootstrap(): Promise<void> {
 
   observer.observe(document.body, { subtree: true, childList: true });
 
-  window.addEventListener("resize", () => {
+  const onAnyScroll = (): void => {
+    scheduleRefresh(30);
+  };
+  document.addEventListener("scroll", onAnyScroll, true);
+
+  const onResize = (): void => {
     topBar.syncLayout();
-  });
+    scheduleRefresh(0);
+  };
+  window.addEventListener("resize", onResize);
 
   window.setInterval(() => {
     const messages = navigator.getAllMessages();
@@ -424,6 +772,8 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("beforeunload", () => {
     observer.disconnect();
     themeObserver.disconnect();
+    document.removeEventListener("scroll", onAnyScroll, true);
+    window.removeEventListener("resize", onResize);
     if (refreshTimer !== null) {
       window.clearTimeout(refreshTimer);
       refreshTimer = null;

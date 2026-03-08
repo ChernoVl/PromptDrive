@@ -31,7 +31,7 @@ function getStorageApi():
   };
 }
 
-interface BookmarkTarget {
+export interface BookmarkTarget {
   bookmark: Bookmark;
   message: ChatMessage;
   index: number;
